@@ -2004,7 +2004,12 @@
                 }
             } catch (err) {
                 bannerEl.className = 'agy-ms-test-banner err';
-                bannerEl.textContent = `❌ 获取模型列表失败: ${err.message || err}`;
+                const msg = err?.message || String(err);
+                if (msg.includes('Failed to fetch')) {
+                    bannerEl.textContent = '❌ 本地服务未响应 (127.0.0.1:19823)，请通过桌面快捷方式重新打开 Antigravity 自动唤醒后台。';
+                } else {
+                    bannerEl.textContent = `❌ 获取模型列表失败: ${msg}`;
+                }
             } finally {
                 discoverBtn.textContent = '🔍 从接口获取列表';
             }

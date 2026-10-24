@@ -8,7 +8,7 @@
  * 4. 强制流式 (Forced-SSE) 自动聚合 —— 兼容部分无视 stream:false 强制返回 text/event-stream 的中转站
  */
 
-import { execSync } from 'node:child_process';
+import { execSync, execFile } from 'node:child_process';
 import { applyReasoningConfig } from './reasoning-config.mjs';
 
 let UndiciProxyAgent = null;
@@ -83,7 +83,58 @@ export function detectSystemProxy(targetUrl = '') {
 }
 
 /**
- * 支持代理优先 + 直连回退的 HTTP 请求封装
+ * 使用系统 curl.exe 执行基础 HTTP 请求（在 Windows 环境提供证书、系统代理与 TLS 协商回退保障）
+ */
+function curlFetch(url, options = {}, timeoutMs = 25000) {
+    return new Promise((resolve, reject) => {
+        const timeoutSec = String(Math.max(1, Math.ceil(timeoutMs / 1000)));
+        const args = ['-s', '-S', '--ssl-no-revoke', '-m', timeoutSec, '-i'];
+        const method = (options.method || 'GET').toUpperCase();
+        args.push('-X', method);
+        if (options.headers) {
+            for (const [k, v] of Object.entries(options.headers)) {
+                if (v !== undefined && v !== null) {
+                    args.push('-H', `${k}: ${v}`);
+                }
+            }
+        }
+        if (options.body) {
+            args.push('--data-raw', typeof options.body === 'string' ? options.body : JSON.stringify(options.body));
+        }
+        args.push(url);
+        execFile('curl.exe', args, { windowsHide: true, maxBuffer: 15 * 1024 * 1024 }, (err, stdout, stderr) => {
+            if (err) return reject(new Error(stderr || err.message));
+            const parts = stdout.split(/\r?\n\r?\n/);
+            let headerBlock = parts[0] || '';
+            let body = parts.slice(1).join('\r\n\r\n');
+            if (/HTTP\/\d\.\d\s+200\s+Connection established/i.test(headerBlock) && parts.length > 2) {
+                headerBlock = parts[1];
+                body = parts.slice(2).join('\r\n\r\n');
+            }
+            const statusMatch = headerBlock.match(/HTTP\/\d(?:\.\d)?\s+(\d+)/i);
+            const status = statusMatch ? parseInt(statusMatch[1], 10) : 200;
+            const resHeaders = new Headers();
+            for (const line of headerBlock.split(/\r?\n/)) {
+                const idx = line.indexOf(':');
+                if (idx > 0) {
+                    resHeaders.append(line.slice(0, idx).trim().toLowerCase(), line.slice(idx + 1).trim());
+                }
+            }
+            resolve({
+                status,
+                statusText: statusMatch ? statusMatch[0] : 'OK',
+                ok: status >= 200 && status < 300,
+                headers: resHeaders,
+                text: async () => body,
+                json: async () => JSON.parse(body),
+                body: null
+            });
+        });
+    });
+}
+
+/**
+ * 支持代理优先 + 直连回退 + 系统 curl 保障的 HTTP 请求封装
  */
 async function fetchWithFallback(url, options = {}, timeoutMs = 45000, onActivity) {
     const proxyUrl = detectSystemProxy(url);
@@ -127,17 +178,22 @@ async function fetchWithFallback(url, options = {}, timeoutMs = 45000, onActivit
     };
 
     try {
-        return await attemptFetch(false);
-    } catch (directErr) {
+        return await attemptFetch(Boolean(proxyUrl));
+    } catch (firstErr) {
         if (options.signal?.aborted) throw options.signal.reason;
-        if (proxyUrl && UndiciProxyAgent) {
+        if (proxyUrl) {
             try {
-                return await attemptFetch(true);
-            } catch {
-                throw directErr;
+                return await attemptFetch(false);
+            } catch {}
+        }
+        if (process.platform === 'win32') {
+            try {
+                return await curlFetch(url, options, timeoutMs);
+            } catch (curlErr) {
+                throw new Error(`${firstErr.message || firstErr} (curl: ${curlErr.message || curlErr})`);
             }
         }
-        throw directErr;
+        throw firstErr;
     }
 }
 
@@ -1240,6 +1296,7 @@ export async function discoverRelayModels({ baseUrl, apiKey }) {
         ? [`${clean}/models`]
         : [`${clean}/v1/models`, `${clean}/models`];
 
+    let lastError = '';
     for (const url of candidates) {
         try {
             const res = await fetchWithFallback(
@@ -1260,6 +1317,7 @@ export async function discoverRelayModels({ baseUrl, apiKey }) {
                 if ([401, 403, 429].includes(res.status)) {
                     return { ok: false, error: `HTTP ${res.status}: ${parseRawModelResponse(errorText, 'openai').error || res.statusText}`, models: [] };
                 }
+                lastError = `HTTP ${res.status}: ${res.statusText || errorText.slice(0, 100)}`;
                 continue;
             }
             const data = await res.json();
@@ -1274,14 +1332,14 @@ export async function discoverRelayModels({ baseUrl, apiKey }) {
                     models: Array.from(new Set(ids)).sort()
                 };
             }
-        } catch {
-            // continue to next candidate
+        } catch (err) {
+            lastError = err?.message || String(err);
         }
     }
 
     return {
         ok: false,
-        error: '该中转站未开放 /v1/models 列表接口，请直接手动输入或选择预设模型 ID',
+        error: lastError ? `拉取失败 (${lastError})，请检查网络/中转站状态，或直接手动输入模型 ID` : '该中转站未开放 /v1/models 列表接口，请直接手动输入或选择预设模型 ID',
         models: []
     };
 }

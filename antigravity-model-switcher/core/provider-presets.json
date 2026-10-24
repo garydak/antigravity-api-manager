@@ -1,5 +1,6 @@
 [
   {"id":"custom","name":"OneAPI / NewAPI / 自定义","baseUrl":"","protocol":"auto","hint":"填写你的站点地址，如 https://你的站点/v1；地址由中转站提供。"},
+  {"id":"moremark","name":"MoreMark AI","baseUrl":"https://api.moremark.app/v1","protocol":"openai","hint":"MoreMark AI 统一中转平台，如 gpt-6-sol, gpt-5.6-sol, codex-auto-review 等","docs":"https://moremark.app"},
   {"id":"deepseek","name":"DeepSeek 官方","baseUrl":"https://api.deepseek.com","protocol":"openai","docs":"https://api-docs.deepseek.com/"},
   {"id":"openrouter","name":"OpenRouter","baseUrl":"https://openrouter.ai/api/v1","protocol":"openai","docs":"https://openrouter.ai/docs/api/api-reference/models/get-models"},
   {"id":"siliconflow","name":"硅基流动 SiliconFlow","baseUrl":"https://api.siliconflow.cn/v1","protocol":"openai","docs":"https://api-docs.siliconflow.cn/docs/userguide/quickstart"},

@@ -41,8 +41,36 @@ async function waitAndInjectLive(maxWaitMs = 25000) {
   return false;
 }
 
+function ensureDaemon() {
+  const daemonScript = path.join(runtime, 'antigravity-account-switcher', 'core', 'daemon.mjs');
+  if (!fs.existsSync(daemonScript)) return;
+  try {
+    const output = execFileSync('powershell.exe', [
+      '-NoProfile', '-NonInteractive', '-Command',
+      "$p = Get-CimInstance Win32_Process -Filter \"Name='node.exe'\" | Where-Object { $_.CommandLine -and $_.CommandLine.Contains('daemon.mjs') }; if ($p) { $p.ProcessId }"
+    ], { windowsHide: true, encoding: 'utf8', timeout: 3000 }).trim();
+    if (output) {
+      log('Daemon is already running with PID:', output);
+      return;
+    }
+  } catch (_) {}
+  log('Starting daemon process...');
+  try {
+    const child = spawn(process.execPath, [daemonScript], {
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: true
+    });
+    child.unref();
+    log('Spawned daemon PID:', child.pid);
+  } catch (err) {
+    log('Failed to spawn daemon:', err.message);
+  }
+}
+
 function launch(options = {}) {
   log('launch() called');
+  ensureDaemon();
   const resources = options.resourcesDir || paths.resolveResourcesDir({ refresh: true });
   try {
     const installCore = require('../antigravity-claude-skin/tools/install-core.js');
@@ -193,4 +221,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { launch, installDesktopLauncher, restoreDesktopLauncher, waitAndInjectLive };
+module.exports = { launch, installDesktopLauncher, restoreDesktopLauncher, waitAndInjectLive, ensureDaemon };
