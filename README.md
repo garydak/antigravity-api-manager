@@ -171,13 +171,13 @@ flowchart TD
 
 ### 2. 下载并一键安装
 
-下载 [仓库 ZIP](https://github.com/garydak/antigravity-enhancement-suite/archive/refs/heads/main.zip) 并解压，双击 **`双击一键安装.cmd`**，勾选需要的功能后安装。安装器将运行时复制到固定应用数据目录；**成功安装后，下载或克隆的源文件夹可以移动或删除**。
+下载 [仓库 ZIP](https://github.com/garydak/antigravity-api-manager/archive/refs/heads/main.zip) 并解压，双击 **`双击一键安装.cmd`**，勾选需要的功能后安装。安装器将运行时复制到固定应用数据目录；**成功安装后，下载或克隆的源文件夹可以移动或删除**。
 
 也可以用 PowerShell 安装：
 
 ```powershell
-git clone https://github.com/garydak/antigravity-enhancement-suite.git
-cd antigravity-enhancement-suite
+git clone https://github.com/garydak/antigravity-api-manager.git
+cd antigravity-api-manager
 
 # 打开可视化功能选择窗口
 powershell -ExecutionPolicy Bypass -File .\install-all.ps1
@@ -192,7 +192,7 @@ powershell -ExecutionPolicy Bypass -File .\install-all.ps1 -Modules accounts,api
 **一行命令下载并启动安装器（PowerShell）：**
 
 ```powershell
-& { $installer = Join-Path $env:TEMP 'agy-suite-install.ps1'; Invoke-WebRequest 'https://raw.githubusercontent.com/garydak/antigravity-enhancement-suite/main/install-online.ps1' -OutFile $installer; powershell -NoProfile -ExecutionPolicy Bypass -File $installer }
+& { $installer = Join-Path $env:TEMP 'agy-suite-install.ps1'; Invoke-WebRequest 'https://raw.githubusercontent.com/garydak/antigravity-api-manager/main/install-online.ps1' -OutFile $installer; powershell -NoProfile -ExecutionPolicy Bypass -File $installer }
 ```
 
 `-RuntimeDir` 可指定固定安装目录，例如 `D:\AppsData\antigravity-suite`；`-ConfigDir` 可指定 Antigravity 插件配置目录。以后更新或卸载自定义安装时也传入相同的 `-RuntimeDir`。
@@ -322,7 +322,7 @@ powershell -ExecutionPolicy Bypass -File .\uninstall-all.ps1
 ## 📁 目录结构
 
 ```text
-antigravity-enhancement-suite/
+antigravity-api-manager/
 ├── install-all.ps1                     # 一键全量安装脚本（推荐入口）
 ├── uninstall-all.ps1                   # 一键完整卸载与还原官方界面脚本
 ├── live-reload.ps1                     # 样式、词条与前端脚本实时热更新工具
