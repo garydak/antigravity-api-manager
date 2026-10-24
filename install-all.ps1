@@ -12,11 +12,11 @@ if (([version]((& $nodeBin --version).Trim().TrimStart('v'))).Major -lt 22) { th
 if (-not $Modules -and -not $NoUi) {
     Add-Type -AssemblyName System.Windows.Forms
     $form = New-Object System.Windows.Forms.Form
-    $form.Text = 'Antigravity Enhancement Suite'; $form.Width = 440; $form.Height = 330
+    $form.Text = 'Antigravity API Manager'; $form.Width = 440; $form.Height = 330
     $form.StartPosition = 'CenterScreen'; $form.FormBorderStyle = 'FixedDialog'; $form.MaximizeBox = $false
     $choices = @{}
     $moduleLabels = @('Claude theme / Claude 皮肤','Chinese localization / 中文汉化','Account switcher / 多账号切换','API model switcher / API 中转切换')
-    $moduleKeys = @('skin','i18n','accounts','api')
+    $moduleKeys = @('i18n','accounts','api')
     for ($i = 0; $i -lt 4; $i++) {
         $choice = New-Object System.Windows.Forms.CheckBox
         $choice.Text = $moduleLabels[$i]; $choice.Left = 22; $choice.Top = 20 + $i * 36; $choice.Width = 380; $choice.Checked = $true
@@ -33,7 +33,7 @@ if (-not $Modules -and -not $NoUi) {
     if (-not $Modules) { throw 'Please select at least one feature.' }
     $EnableGuardian = $guardianChoice.Checked
 }
-if (-not $Modules) { $Modules = 'skin,i18n,accounts,api' }
+if (-not $Modules) { $Modules = 'i18n,accounts,api' }
 $installArgs = @((Join-Path $PSScriptRoot 'suite\install.cjs'),'--modules',$Modules,'--guardian',([bool]$EnableGuardian).ToString().ToLowerInvariant())
 if ($AntigravityDir) { $installArgs += @('--app',$AntigravityDir) }
 if ($RuntimeDir) { $installArgs += @('--runtime',$RuntimeDir) }

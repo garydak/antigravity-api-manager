@@ -1,3 +1,15 @@
+
+    function isTypeaheadOrMentionMenuOpen() {
+        return Boolean(
+            document.querySelector('[role="listbox"]') ||
+            document.querySelector('[role="menu"]') ||
+            document.querySelector('.antigravity-slash-menu, .antigravity-mention-menu') ||
+            document.querySelector('[data-typeahead="true"]') ||
+            document.querySelector('[aria-expanded="true"]') ||
+            document.querySelector('div[class*="popover"], div[class*="menu-container"]')
+        );
+    }
+
 /**
  * Antigravity 聊天界面模型选择器注入与同会话无缝切换引擎 (`chat-injector.js`)
  * --------------------------------------------------------------------------

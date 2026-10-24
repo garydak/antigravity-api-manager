@@ -1,4 +1,4 @@
-# Antigravity Enhancement Suite (Antigravity 全能增强套件)
+# Antigravity API Manager (Antigravity API 管理与多账号切换套件)
 
 <p align="center">
   <strong>Claude 书卷风换肤 · 简体中文汉化 · Google 多账号热切换 · 中转 API 同会话切换 · 按需独立启用</strong>
@@ -21,7 +21,7 @@
 
 ## 📖 项目简介
 
-**Antigravity Enhancement Suite** 是专为 **Google Antigravity 2.0 桌面端 (Windows)** 打造的一站式开源增强工具包。它在**不修改、不破坏官方 `app.asar` 核心文件**的前提下，通过外置无损引导与本地后台服务，为 Antigravity 提供四大实用功能：
+**Antigravity API Manager** 是专为 **Google Antigravity 2.0 桌面端 (Windows)** 打造的一站式开源增强工具包。它在**不修改、不破坏官方 `app.asar` 核心文件**的前提下，通过外置无损引导与本地后台服务，为 Antigravity 提供四大实用功能：
 
 **四项功能现在可独立启用。** 安装时勾选需要的模块；安装后点击左侧「增强套件控制中心」（位于「接入中转 API」上方），在独立面板中分别开关 Claude 皮肤、中文汉化、多账号切换和 API 中转。可以只汉化并保留官方配色，也可以保持英文界面只用账号或 API 功能。更新自愈计划任务为独立可选项，默认不启用。
 
@@ -171,12 +171,12 @@ flowchart TD
 
 ### 2. 下载并一键安装
 
-下载 [仓库 ZIP](https://github.com/Chenxuan-Xie/antigravity-enhancement-suite/archive/refs/heads/main.zip) 并解压，双击 **`双击一键安装.cmd`**，勾选需要的功能后安装。安装器将运行时复制到固定应用数据目录；**成功安装后，下载或克隆的源文件夹可以移动或删除**。
+下载 [仓库 ZIP](https://github.com/garydak/antigravity-enhancement-suite/archive/refs/heads/main.zip) 并解压，双击 **`双击一键安装.cmd`**，勾选需要的功能后安装。安装器将运行时复制到固定应用数据目录；**成功安装后，下载或克隆的源文件夹可以移动或删除**。
 
 也可以用 PowerShell 安装：
 
 ```powershell
-git clone https://github.com/Chenxuan-Xie/antigravity-enhancement-suite.git
+git clone https://github.com/garydak/antigravity-enhancement-suite.git
 cd antigravity-enhancement-suite
 
 # 打开可视化功能选择窗口
@@ -192,7 +192,7 @@ powershell -ExecutionPolicy Bypass -File .\install-all.ps1 -Modules accounts,api
 **一行命令下载并启动安装器（PowerShell）：**
 
 ```powershell
-& { $installer = Join-Path $env:TEMP 'agy-suite-install.ps1'; Invoke-WebRequest 'https://raw.githubusercontent.com/Chenxuan-Xie/antigravity-enhancement-suite/main/install-online.ps1' -OutFile $installer; powershell -NoProfile -ExecutionPolicy Bypass -File $installer }
+& { $installer = Join-Path $env:TEMP 'agy-suite-install.ps1'; Invoke-WebRequest 'https://raw.githubusercontent.com/garydak/antigravity-enhancement-suite/main/install-online.ps1' -OutFile $installer; powershell -NoProfile -ExecutionPolicy Bypass -File $installer }
 ```
 
 `-RuntimeDir` 可指定固定安装目录，例如 `D:\AppsData\antigravity-suite`；`-ConfigDir` 可指定 Antigravity 插件配置目录。以后更新或卸载自定义安装时也传入相同的 `-RuntimeDir`。

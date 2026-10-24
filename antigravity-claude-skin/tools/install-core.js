@@ -48,7 +48,7 @@ function installNativeAppHook(options = {}) {
 
 async function injectLiveViaCdp(options = {}) {
     const endpoint = await discoverCdp();
-    const css = fs.readFileSync(path.join(skinRoot, 'claude-theme.css'), 'utf8');
+    const css = '';
     const bundle = fs.readFileSync(path.join(skinRoot, 'i18n', 'claude-cn-i18n.js'), 'utf8');
     const hash = crypto.createHash('sha256').update(bundle).digest('hex');
     const cssHash = crypto.createHash('sha256').update(css).digest('hex');
@@ -109,7 +109,7 @@ async function injectLiveViaCdp(options = {}) {
 function ensureBackups() { fs.mkdirSync(path.join(skinRoot, 'backup'), { recursive: true }); }
 function ensureLightThemeConfig() { /* Respect the existing user theme preference. */ }
 async function main() {
-    require('./build-theme.js'); require('./build-i18n.js');
+    require('./build-i18n.js');
     ensureBackups();
     console.log('[Hook]', JSON.stringify(installNativeAppHook()));
     try { console.log('[CDP]', JSON.stringify(await injectLiveViaCdp({ onlyIfMissing: true }))); }

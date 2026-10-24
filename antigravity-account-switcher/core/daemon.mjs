@@ -29,9 +29,10 @@ if (!globalThis.__AGY_INPROC_SWITCHER__) {
   process.on("exit", (code) => {
     log(`Process exiting (PID ${process.pid}) with code=${code}`);
   });
-  for (const sig of ["SIGINT", "SIGTERM", "SIGHUP", "SIGBREAK"]) {
+  for (const sig of ["SIGINT", "SIGTERM"]) {
     process.on(sig, () => {
-      log(`Received signal ${sig} on PID ${process.pid} (ignoring to stay alive)`);
+      log(`Received signal ${sig} on PID ${process.pid}, shutting down daemon gracefully...`);
+      process.exit(0);
     });
   }
 }

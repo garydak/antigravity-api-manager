@@ -11,6 +11,12 @@ let lastRepair;
 
 function launch(options = {}) {
   const resources = options.resourcesDir || paths.resolveResourcesDir({ refresh: true });
+  try {
+    const installCore = require('../antigravity-claude-skin/tools/install-core.js');
+    installCore.installNativeAppHook({ resourcesDir: resources });
+  } catch (err) {
+    console.warn('[AAM Launcher] Lazy auto-heal check error:', err.message);
+  }
   const exe = path.join(path.dirname(resources), 'Antigravity.exe');
   if (!fs.existsSync(exe)) throw Error('Antigravity executable is unavailable');
   const env = { ...process.env, ...proxy.getProxyEnvironment() };

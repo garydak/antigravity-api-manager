@@ -99,7 +99,7 @@ async function install(options){
   fs.writeFileSync(path.join(runtime,'antigravity-claude-skin','backup','node-bin.txt'),'\uFEFF'+process.execPath,'utf16le');
   if(options.app)process.env.AGY_APP_DIR=path.resolve(options.app);
   console.log('[Install] Installing selected plugins');installPlugins(runtime,configDir,settings.readSettings());
-  for(const builder of ['build-theme.js','build-i18n.js'])require(path.join(runtime,'antigravity-claude-skin','tools',builder));
+  for(const builder of ['build-i18n.js'])require(path.join(runtime,'antigravity-claude-skin','tools',builder));
   const core=require(path.join(runtime,'antigravity-claude-skin','tools','install-core.js'));
   const paths=require(path.join(runtime,'antigravity-claude-skin','tools','agy-paths.cjs'));
   paths.saveInstallPathsCache({nodeBin:process.execPath,resourcesDir:paths.resolveResourcesDir()});
