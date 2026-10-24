@@ -84,7 +84,7 @@ async function install(options){
     }
     // Disable the previous recovery task before replacing its runtime. Stop only
     // guardians whose exact script paths belong to this app's existing hook.
-    execFileSync('powershell.exe',['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',path.join(source,'antigravity-claude-skin','tools','register-guardian.ps1'),'-Disable'],{windowsHide:true});
+// guardian disabled
     for(const dir of new Set([runtime,oldRuntime].filter(Boolean))){const guardian=path.join(dir,'antigravity-claude-skin','tools','auto-heal-daemon.js').replace(/'/g,"''");execFileSync('powershell.exe',['-NoProfile','-Command',`Get-CimInstance Win32_Process -Filter "Name='node.exe'" | Where-Object { $_.CommandLine.Contains('${guardian}') } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }`],{windowsHide:true});}
     if(backend)process.kill(backend.pid);
   }
@@ -107,7 +107,7 @@ async function install(options){
   if(!test)require(path.join(runtime,'suite','launch.cjs')).installDesktopLauncher(paths.resolveResourcesDir());
   write(path.join(runtime,'data','install-manifest.json'),JSON.stringify({runtime,configDir,resourcesDir:paths.resolveResourcesDir(),version:2,installedAt:new Date().toISOString()},null,2));
   if(!test){
-    execFileSync('powershell.exe',['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',path.join(runtime,'antigravity-claude-skin','tools','register-guardian.ps1'),...(selected.guardian?[]:['-Disable'])],{stdio:'inherit',windowsHide:true});
+// guardian disabled
     const child=spawn(process.execPath,[path.join(runtime,'antigravity-account-switcher','core','daemon.mjs')],{detached:true,stdio:'ignore',windowsHide:true});child.unref();
     for(let attempt=0;attempt<20;attempt++){try{const health=await fetch('http://127.0.0.1:19823/api/health',{signal:AbortSignal.timeout(500)}).then(r=>r.json());if(health.runtimeRoot===runtime)break;}catch{}await new Promise(resolve=>setTimeout(resolve,100));}
     try{await core.injectLiveViaCdp();}catch(error){console.log('下次启动应用时加载：'+error.message);}
@@ -129,7 +129,7 @@ async function uninstall(options){
     await core.injectLiveViaCdp({settings:disabled}).catch(()=>{});
   }
   if(options.test!=='true'){
-    execFileSync('powershell.exe',['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',path.join(runtime,'antigravity-claude-skin','tools','register-guardian.ps1'),'-Disable'],{windowsHide:true});
+// guardian disabled
     const daemon=path.join(runtime,'antigravity-account-switcher','core','daemon.mjs').replace(/'/g,"''");
     execFileSync('powershell.exe',['-NoProfile','-Command',`Get-CimInstance Win32_Process -Filter "Name='node.exe'" | Where-Object { $_.CommandLine.Contains('${daemon}') } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }`],{windowsHide:true});
   }
