@@ -97,13 +97,13 @@ function installDesktopLauncher(resources) {
   const script = [
     "$ErrorActionPreference='SilentlyContinue';",
     "$paths = @(",
-    "  Join-Path ([Environment]::GetFolderPath('DesktopDirectory')) 'Antigravity.lnk',",
-    "  Join-Path ([Environment]::GetFolderPath('CommonDesktopDirectory')) 'Antigravity.lnk',",
-    "  Join-Path ([Environment]::GetFolderPath('StartMenu')) 'Programs\\Antigravity.lnk'",
+    "  (Join-Path ([Environment]::GetFolderPath('DesktopDirectory')) 'Antigravity.lnk'),",
+    "  (Join-Path ([Environment]::GetFolderPath('CommonDesktopDirectory')) 'Antigravity.lnk'),",
+    "  (Join-Path ([Environment]::GetFolderPath('StartMenu')) 'Programs\\Antigravity.lnk')",
     ");",
     "$sh = New-Object -ComObject WScript.Shell;",
     "$target = Join-Path $env:WINDIR 'System32\\wscript.exe';",
-    "$args = '//B //Nologo \"' + $env:AGY_LAUNCH_SCRIPT + '\"';",
+    "$args = '//B //Nologo ' + [char]34 + $env:AGY_LAUNCH_SCRIPT + [char]34;",
     "foreach ($file in $paths) {",
     "  if (Test-Path -LiteralPath $file) {",
     "    $link = $sh.CreateShortcut($file);",
@@ -133,21 +133,47 @@ function installDesktopLauncher(resources) {
 
 function restoreDesktopLauncher() {
   if (process.platform !== 'win32') return;
+  const resources = paths.resolveResourcesDir({ refresh: true });
+  const exe = path.join(path.dirname(resources), 'Antigravity.exe');
   const script = [
     "$ErrorActionPreference='SilentlyContinue';",
     "$paths = @(",
-    "  Join-Path ([Environment]::GetFolderPath('DesktopDirectory')) 'Antigravity.lnk',",
-    "  Join-Path ([Environment]::GetFolderPath('StartMenu')) 'Programs\\Antigravity.lnk'",
+    "  (Join-Path ([Environment]::GetFolderPath('DesktopDirectory')) 'Antigravity.lnk'),",
+    "  (Join-Path ([Environment]::GetFolderPath('CommonDesktopDirectory')) 'Antigravity.lnk'),",
+    "  (Join-Path ([Environment]::GetFolderPath('StartMenu')) 'Programs\\Antigravity.lnk')",
     ");",
+    "$sh = New-Object -ComObject WScript.Shell;",
+    "$exe = $env:AGY_APP_EXE;",
+    "$exeDir = Split-Path -Parent $exe;",
+    "$dataBackup = $env:AGY_SHORTCUT_BACKUP;",
     "foreach ($file in $paths) {",
     "  $bak = $file + '.before.lnk';",
     "  if (Test-Path -LiteralPath $bak) {",
     "    Copy-Item -LiteralPath $bak -Destination $file -Force;",
     "    Remove-Item -LiteralPath $bak -Force;",
+    "  } elseif ($dataBackup -and (Test-Path -LiteralPath $dataBackup) -and $file.Contains('Desktop')) {",
+    "    Copy-Item -LiteralPath $dataBackup -Destination $file -Force;",
+    "  }",
+    "  if (Test-Path -LiteralPath $file) {",
+    "    $link = $sh.CreateShortcut($file);",
+    "    $leaf = Split-Path -Leaf $link.TargetPath;",
+    "    if ($link.Arguments.Contains('launch-antigravity.vbs') -or $leaf -ieq 'wscript.exe') {",
+    "      $link.TargetPath = $exe;",
+    "      $link.Arguments = '';",
+    "      $link.WorkingDirectory = $exeDir;",
+    "      $link.IconLocation = $exe + ',0';",
+    "      $link.Save();",
+    "    }",
     "  }",
     "}"
   ].join(' ');
-  execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { windowsHide: true, timeout: 5000 });
+  try {
+    execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], {
+      env: { ...process.env, AGY_SHORTCUT_BACKUP: shortcutBackup, AGY_APP_EXE: exe },
+      windowsHide: true,
+      timeout: 5000
+    });
+  } catch (_) {}
 }
 
 if (require.main === module) {
