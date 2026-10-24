@@ -78,7 +78,15 @@ powershell -ExecutionPolicy Bypass -File .\install-all.ps1
 
 ---
 
-## 🔄 汉化词库同步（开发者 / 高级用户）
+## 🤖 自动化汉化同步 (GitHub Actions)
+
+本项目配置了 **每日自动检测同步流**（运行在 GitHub Actions）：
+- ⏰ **定时任务**：每天 UTC 02:00（北京时间 10:00）自动请求 `Silas-02/antigravity-desktop-cn` 官方仓库。
+- 🔄 **自动合并**：当检测到上游词库有新的 commit，Action 将自动拉取全量字典并重新编译 `claude-cn-i18n.js` 汉化包，生成 commit 自动提交到主分支。
+
+---
+
+## 🔄 本地手动汉化同步
 
 当 Antigravity 发布大版本更新导致部分界面出现英文时，只需执行以下命令即可同步上游最新词库：
 
