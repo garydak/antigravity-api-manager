@@ -2,8 +2,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const root = path.resolve(__dirname, '..');
 const file = process.env.AGY_SUITE_SETTINGS_FILE || path.join(root, 'data', 'suite-settings.json');
-const defaults = { version: 1, skin: true, themeMode: 'light', i18n: true, accounts: true, api: true,
-  guardian: false, greetingName: '', replyFont: 'default', replySize: 'standard', showUsage: false, showQuota: true, quotaReminder: true };
+const defaults = { version: 1, skin: false, themeMode: 'system', i18n: true, accounts: true, api: true,
+  guardian: false, greetingName: '', replyFont: 'default', replySize: 'standard', showUsage: true, showQuota: true, quotaReminder: true };
 function readSettings() {
   if (!fs.existsSync(file)) return { ...defaults };
   const data = JSON.parse(fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, ''));

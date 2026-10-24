@@ -255,7 +255,9 @@ function buildI18nBundle() {
   // Main hooks, legacy preloads and the guardian can reach the same renderer.
   // Do not tear down a live relay or re-mount identical code on repeated injection.
   js += `\nwindow.__agyProviderPresets=${fs.readFileSync(path.join(skinRoot,'..','antigravity-model-switcher','core','provider-presets.json'),'utf8')};\n`;
-  js += `\nwindow.__agySuiteTheme=${JSON.stringify(fs.readFileSync(path.join(skinRoot,'claude-theme.css'),'utf8'))};\n`;
+  const themeCssPath = path.join(skinRoot, 'claude-theme.css');
+  const themeCss = fs.existsSync(themeCssPath) ? fs.readFileSync(themeCssPath, 'utf8') : '';
+  js += `\nwindow.__agySuiteTheme=${JSON.stringify(themeCss)};\n`;
   const themeSwitcherPath = path.join(skinRoot, 'src', 'theme-switcher.js');
   if (fs.existsSync(themeSwitcherPath)) {
     js += '\nwindow.__agySuiteModules.skin=function(){\n' + fs.readFileSync(themeSwitcherPath, 'utf8') + '\n};';
