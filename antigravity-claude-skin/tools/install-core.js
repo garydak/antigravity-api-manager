@@ -53,7 +53,7 @@ async function injectLiveViaCdp(options = {}) {
     const hash = crypto.createHash('sha256').update(bundle).digest('hex');
     const cssHash = crypto.createHash('sha256').update(css).digest('hex');
     const bundleId = JSON.parse(bundle.match(/window\.__agyRendererBundleId===("[^"]+")/)[1]);
-    let injected = 0, recovered = 0;
+    let injected = 0, recovered = 0, active = 0;
     for (const target of endpoint.targets.filter(t => t.type === 'page' && /^https?:\/\/127\.0\.0\.1(?::|\/)/.test(t.url || ''))) {
         const socket = new WebSocket(target.webSocketDebuggerUrl);
         const pending = new Map();
@@ -91,8 +91,9 @@ async function injectLiveViaCdp(options = {}) {
             frameId=frame.id;
             await call('Runtime.enable',{});
             const evaluate=async expression=>(await call('Runtime.evaluate',{expression,contextId,returnByValue:true,awaitPromise:true})).result?.value;
-            const condition = await evaluate(`({busy:!!window.__AGY_MODEL_SWITCHER?.getState().isSendingCustomChat||!!document.querySelector('button[data-tooltip-id="input-send-button-cancel-tooltip"]'),ready:document.readyState!=='loading'&&location.origin===${JSON.stringify(frame.securityOrigin)}&&!!document.body?.childElementCount,installed:window.__agyInstalledBundleHash===${JSON.stringify(hash)}&&window.__agyInstalledCssHash===${JSON.stringify(cssHash)}&&window.__agyRendererBundleId===${JSON.stringify(bundleId)}&&!!window.__agySuite})`);
-            if (condition.busy || !condition.ready || (options.onlyIfMissing && condition.installed)) continue;
+            const condition = await evaluate(`({busy:!!window.__AGY_MODEL_SWITCHER?.getState().isSendingCustomChat,ready:document.readyState!=='loading'&&location.origin===${JSON.stringify(frame.securityOrigin)}&&!!document.body?.childElementCount,installed:window.__agyInstalledBundleHash===${JSON.stringify(hash)}&&window.__agyInstalledCssHash===${JSON.stringify(cssHash)}&&window.__agyRendererBundleId===${JSON.stringify(bundleId)}&&!!window.__agySuite})`);
+            if (condition.installed) active++;
+            if ((condition.installed && condition.busy) || !condition.ready || (options.onlyIfMissing && condition.installed)) continue;
             if(options.settings)await evaluate(`window.__agySuite?.apply(${JSON.stringify(options.settings)})`);
             const initial=options.settings||require(path.resolve(skinRoot,'..','suite','settings.cjs')).readSettings();
             await evaluate('if(!window.__agySuite||window.__agyRendererBundleId!=='+JSON.stringify(bundleId)+')window.__agySuiteInitialSettings='+JSON.stringify(initial)+';\n'+bundle);
@@ -103,7 +104,7 @@ async function injectLiveViaCdp(options = {}) {
             socket.close();
         }
     }
-    return { port: endpoint.port, injected, recovered };
+    return { port: endpoint.port, injected, recovered, active };
 }
 
 function ensureBackups() { fs.mkdirSync(path.join(skinRoot, 'backup'), { recursive: true }); }

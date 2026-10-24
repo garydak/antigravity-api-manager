@@ -7,33 +7,54 @@ const proxy = require('../antigravity-claude-skin/tools/native-proxy.cjs');
 const runtime = path.resolve(__dirname, '..');
 const scriptFile = path.join(runtime, 'data', 'launch-antigravity.vbs');
 const shortcutBackup = path.join(runtime, 'data', 'desktop-shortcut.before.lnk');
-let lastRepair;
+const logFile = path.join(runtime, 'data', 'launcher.log');
 
-async function waitAndInjectLive(maxWaitMs = 15000) {
+function log(...args) {
+  const line = `[${new Date().toISOString()}] ${args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ')}\n`;
+  try {
+    fs.mkdirSync(path.dirname(logFile), { recursive: true });
+    fs.appendFileSync(logFile, line);
+  } catch (_) {}
+}
+
+async function waitAndInjectLive(maxWaitMs = 25000) {
+  log('Starting waitAndInjectLive...');
   const installCore = require('../antigravity-claude-skin/tools/install-core.js');
   const startTime = Date.now();
+  let attempts = 0;
   while (Date.now() - startTime < maxWaitMs) {
-    await new Promise(r => setTimeout(r, 400));
+    attempts++;
+    await new Promise(r => setTimeout(r, 600));
     try {
+      log(`Attempt ${attempts}: probing CDP...`);
       const res = await installCore.injectLiveViaCdp();
-      if (res && res.port) {
+      log(`Attempt ${attempts} result:`, res);
+      if (res && (res.injected > 0 || res.recovered > 0 || res.active > 0)) {
+        log('Injection SUCCESS!');
         return true;
       }
-    } catch (_) {}
+    } catch (err) {
+      log(`Attempt ${attempts} error:`, err.message);
+    }
   }
+  log('waitAndInjectLive TIMEOUT after', attempts, 'attempts');
   return false;
 }
 
 function launch(options = {}) {
+  log('launch() called');
   const resources = options.resourcesDir || paths.resolveResourcesDir({ refresh: true });
   try {
     const installCore = require('../antigravity-claude-skin/tools/install-core.js');
     installCore.installNativeAppHook({ resourcesDir: resources });
   } catch (err) {
-    console.warn('[AAM Launcher] Lazy auto-heal check error:', err.message);
+    log('Lazy auto-heal hook error:', err.message);
   }
   const exe = path.join(path.dirname(resources), 'Antigravity.exe');
-  if (!fs.existsSync(exe)) throw Error('Antigravity executable is unavailable');
+  if (!fs.existsSync(exe)) {
+    log('Antigravity.exe not found at:', exe);
+    throw Error('Antigravity executable is unavailable');
+  }
   const env = { ...process.env, ...proxy.getProxyEnvironment() };
   
   const servers = [];
@@ -51,18 +72,19 @@ function launch(options = {}) {
   ];
   if (servers.length) args.push('--proxy-server=' + servers.join(';'));
   
+  log('Spawning exe:', exe, 'with args:', args);
   const child = spawn(exe, args, {
     cwd: path.dirname(exe), env, detached: true, stdio: 'ignore', windowsHide: false
   });
-  child.on('error', error => { console.error(error.message); process.exitCode = 1; });
+  child.on('error', error => { log('Child process error:', error.message); process.exitCode = 1; });
   child.unref();
 
+  log('Spawned PID:', child.pid);
   return { pid: child.pid };
 }
 
 function installDesktopLauncher(resources) {
   if (process.platform !== 'win32') return { skipped: true };
-  if (lastRepair?.resources === resources && Date.now() - lastRepair.time < 30000) return lastRepair.result;
   const exe = path.join(path.dirname(resources), 'Antigravity.exe');
   if (!fs.existsSync(exe)) return { skipped: true };
   const quote = value => '"' + value.replaceAll('"', '""') + '"';
@@ -88,12 +110,12 @@ function installDesktopLauncher(resources) {
     "    $owned = $link.Arguments.Contains($env:AGY_LAUNCH_SCRIPT);",
     "    if (!$owned -and (Split-Path -Leaf $link.TargetPath) -ieq 'Antigravity.exe') {",
     "      Copy-Item -LiteralPath $file -Destination ($file + '.before.lnk') -Force;",
-    "      $link.TargetPath = $target;",
-    "      $link.Arguments = $args;",
-    "      $link.WorkingDirectory = Split-Path -Parent $env:AGY_APP_EXE;",
-    "      $link.IconLocation = $env:AGY_APP_EXE + ',0';",
-    "      $link.Save();",
     "    }",
+    "    $link.TargetPath = $target;",
+    "    $link.Arguments = $args;",
+    "    $link.WorkingDirectory = Split-Path -Parent $env:AGY_APP_EXE;",
+    "    $link.IconLocation = $env:AGY_APP_EXE + ',0';",
+    "    $link.Save();",
     "  }",
     "};",
     "'{\"changed\":true}'"
@@ -106,7 +128,6 @@ function installDesktopLauncher(resources) {
   
   let result = { changed: true };
   try { result = JSON.parse(output); } catch (_) {}
-  lastRepair = { resources, time: Date.now(), result };
   return result;
 }
 
@@ -130,11 +151,18 @@ function restoreDesktopLauncher() {
 }
 
 if (require.main === module) {
+  log('Launcher process started. argv:', process.argv);
   try {
     launch();
-    waitAndInjectLive().then(() => process.exit(0)).catch(() => process.exit(0));
+    waitAndInjectLive().then((ok) => {
+      log('waitAndInjectLive finished, ok=', ok);
+      process.exit(0);
+    }).catch((err) => {
+      log('waitAndInjectLive caught fatal:', err.message);
+      process.exit(0);
+    });
   } catch (error) {
-    console.error(error.message);
+    log('Fatal launch error:', error.message);
     process.exitCode = 1;
   }
 }
