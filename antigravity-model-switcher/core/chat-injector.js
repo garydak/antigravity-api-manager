@@ -553,6 +553,8 @@
     }
 
     function syncNativeConversation() {
+        // 彻底禁用任何篡改 React 内部 Fiber/Provider 状态的行为，防止 React 19 崩溃白屏/黑屏
+        return false;
         if (state.chatRelayMode === 'native') return false;
         const cid = getActiveConversationId();
         if (deletedConversations.has(cid)) return false;

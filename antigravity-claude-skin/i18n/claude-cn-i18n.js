@@ -1,4 +1,4 @@
-(()=>{if(window.__agyRendererBundleId==="e6af481e685202ecb2554630c9e00e0d14def9d0cf203a7ab2561b8638425b32"&&window.__agySuite)return;if(window.__AGY_MODEL_SWITCHER?.getState().isSendingCustomChat)return;
+(()=>{if(window.__agyRendererBundleId==="af0ae697141ead217ac389badeaa222cd72497bab27ee48e82a7050508082be3"&&window.__agySuite)return;if(window.__AGY_MODEL_SWITCHER?.getState().isSendingCustomChat)return;
 window.__agySuiteModules={i18n:function(){
 '__ANTIGRAVITY_CHINESE_LOCALIZATION_START__';
 (() => {
@@ -5469,6 +5469,8 @@ window.__agySuiteModules.api=function(){
     }
 
     function syncNativeConversation() {
+        // 彻底禁用任何篡改 React 内部 Fiber/Provider 状态的行为，防止 React 19 崩溃白屏/黑屏
+        return false;
         if (state.chatRelayMode === 'native') return false;
         const cid = getActiveConversationId();
         if (deletedConversations.has(cid)) return false;
@@ -8847,4 +8849,4 @@ window.__agySuiteTheme="";
   window.__agySuite={apply,save,getSettings:()=>settings,refresh,openCenter,closeCenter,isSaving:()=>saving};
   window.__agySuiteCleanup=()=>{disposed=true;observer.disconnect();clearInterval(poll);document.removeEventListener('keydown',onKey);style.remove();document.getElementById('agy-suite-center')?.remove();document.getElementById('agy-suite-backdrop')?.remove();document.getElementById('agy-suite-sidebar-button')?.remove();document.querySelector('.agy-suite-greeting')?.remove();};
 })();
-window.__agyRendererBundleId="e6af481e685202ecb2554630c9e00e0d14def9d0cf203a7ab2561b8638425b32";})();
+window.__agyRendererBundleId="af0ae697141ead217ac389badeaa222cd72497bab27ee48e82a7050508082be3";})();
