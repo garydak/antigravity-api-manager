@@ -42,10 +42,18 @@ Module._extensions['.js'] = function(module, filename) {
   const proxy = require('./native-proxy.cjs');
   const proxied = proxy.languageServerProxy(source);
   if(!proxied.compatible)console.warn('[Suite] Language server environment changed; keeping official networking code');
-  if (flags().accounts === false) return module._compile(proxied.code,filename);
-  const result = require('./runtime-transforms.cjs').languageServerPolicy(proxied.code);
-  if (!result.compatible) console.warn('[Guardian] Language server restart policy changed; keeping official code');
-  return module._compile(result.compatible ? result.code : proxied.code, filename);
+  let code = proxied.code;
+  if (flags().accounts !== false) {
+    const result = require('./runtime-transforms.cjs').languageServerPolicy(code);
+    if (result.compatible) code = result.code;
+    else console.warn('[Guardian] Language server restart policy changed; keeping official code');
+  }
+  if (flags().api !== false) {
+    const result = require('./runtime-transforms.cjs').languageServerApiUrl(code);
+    if (result.compatible) code = result.code;
+    else console.warn('[Suite] Language server API proxy URL transform skipped');
+  }
+  return module._compile(code, filename);
 };
 
 // 0. Auto-start Multi-Account Switcher Local Daemon (127.0.0.1:19823)

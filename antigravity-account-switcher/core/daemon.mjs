@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { handleAccountApiRequest } from "./api-handler.mjs";
 import { getActiveModelRequestCount } from '../../antigravity-model-switcher/core/api-handler.mjs';
+import { handleNativeProxyRequest } from '../../antigravity-model-switcher/core/native-proxy.mjs';
 import suiteSettings from '../../suite/settings.cjs';
 import { execFile } from 'node:child_process';
 
@@ -74,6 +75,11 @@ export function ensureLocalSwitcherServer() {
             activeRequests: getActiveModelRequestCount(),
           })
         );
+        return;
+      }
+
+      if (url.pathname.startsWith("/v1beta/") || url.pathname.startsWith("/gemini/")) {
+        await handleNativeProxyRequest(req, res);
         return;
       }
 

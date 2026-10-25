@@ -20,4 +20,14 @@ function legacyPreloadPath(source,preload){
       .replace("const foregroundColor = isLight ? '#141413' : '#FAF9F5';","const foregroundColor = isLight ? '#383A42' : '#FAFAFA';");
     return {code,compatible:matched>0};
 }
-module.exports = { languageServerPolicy,retireLegacyPreload,legacyPreloadPath };
+
+function languageServerApiUrl(source, proxyUrl = 'http://127.0.0.1:19823') {
+    let matched = 0;
+    const code = source.replace(/['"]https:\/\/generativelanguage\.googleapis\.com['"]/g, () => {
+        matched++;
+        return JSON.stringify(proxyUrl);
+    });
+    return { code, matched, compatible: matched > 0 };
+}
+
+module.exports = { languageServerPolicy,retireLegacyPreload,legacyPreloadPath,languageServerApiUrl };
