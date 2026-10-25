@@ -46,18 +46,19 @@ export const AGENT_TOOLS_SYSTEM_PROMPT = `你当前运行在 Antigravity IDE 中
    参数: \`{"path": "${WORKSPACE_POSIX}/...", "startLine": 1, "endLine": 200}\` (startLine/endLine 可选)
 2. \`write_file\`: 创建新文件或完整覆盖写入文件
    参数: \`{"path": "文件绝对路径", "content": "完整文件内容"}\`
-3. \`replace_in_file\`: 精确替换文件中的指定代码片段
+3. \`replace_in_file\` (或 \`edit_file\`): 精确替换文件中的指定代码片段
    参数: \`{"path": "文件绝对路径", "targetContent": "原文件中的精确文本块", "replacementContent": "替换后的新文本块"}\`
 4. \`list_dir\`: 列出目录下的文件与子目录
    参数: \`{"path": "目录绝对路径 (默认 ${WORKSPACE_POSIX})"}\`
 5. \`search_files\`: 在指定目录中递归搜索包含关键字的文件和代码行
    参数: \`{"path": "目录绝对路径", "query": "要搜索的关键字"}\`
-6. \`run_command\`: 在本地执行 PowerShell 或 Node 命令（可用于运行测试脚本、构建注入或通过 \`%APPDATA%/Antigravity/DevToolsActivePort\` 连接 CDP 调试端口）
+6. \`run_command\`: 在本地执行 PowerShell 或 Node 命令
    参数: \`{"command": "要执行的命令", "cwd": "工作目录绝对路径(可选)"}\`
+7. \`browser\` (或 \`fetch_web\`): 联网读取并提取指定网页 URL 的标题与文本内容
+   参数: \`{"url": "https://..."}\`
 
 ### 环境关键路径提示
 - 默认工作区根目录: \`${WORKSPACE_POSIX}\`
-- \`DevToolsActivePort\` 可能过期。连接被拒绝时先检查正在运行的 Antigravity 进程和实际监听端口，再指定 \`AGY_CDP_PORT\` 调用项目的 \`tools/cdp-utils.mjs\`；不要输出包含令牌的完整进程命令行。
 - 中转模型切换器项目目录: \`${MODEL_SWITCHER_ROOT}\`
   - 前端注入脚本: \`${MODEL_SWITCHER_ROOT}/core/chat-injector.js\`
   - 后端路由与流式处理: \`${MODEL_SWITCHER_ROOT}/core/api-handler.mjs\`
@@ -231,9 +232,10 @@ export function describeToolCall(name, args = {}) {
             title = '📝 写入文件';
             detail = shortPath(safeArgs.path || safeArgs.file_path);
             break;
+        case 'edit_file':
         case 'replace_in_file':
             title = '✏️ 修改文件';
-            detail = shortPath(safeArgs.path || safeArgs.file_path);
+            detail = shortPath(safeArgs.path || safeArgs.file_path || safeArgs.Path);
             break;
         case 'list_dir':
             title = '📂 查看目录';
@@ -248,6 +250,11 @@ export function describeToolCall(name, args = {}) {
         case 'run_command':
             title = '💻 执行命令';
             detail = String(safeArgs.command || safeArgs.cmd || '').slice(0, 56);
+            break;
+        case 'browser':
+        case 'fetch_web':
+            title = '🌐 浏览网页';
+            detail = String(safeArgs.url || safeArgs.targetUrl || '').slice(0, 50);
             break;
     }
 
@@ -296,7 +303,7 @@ export async function executeAgentTool(callOrName, maybeArgs, options = {}) {
     try {
         options.signal?.throwIfAborted();
         if (name === 'read_file') {
-            const rawPath = args.path || args.file_path || args.filePath || '';
+            const rawPath = args.path || args.file_path || args.filePath || args.Path || '';
             if (!rawPath) {
                 return buildToolReturn({ ok: false, summary: '缺少文件路径', output: 'Missing required parameter: path' });
             }
@@ -314,8 +321,8 @@ export async function executeAgentTool(callOrName, maybeArgs, options = {}) {
             }
             const raw = fs.readFileSync(targetPath, 'utf-8');
             const allLines = raw.split(/\r?\n/);
-            const start = Math.max(1, Number(args.startLine || args.start_line) || 1);
-            const end = Math.min(allLines.length, Number(args.endLine || args.end_line) || Math.min(allLines.length, start + 299));
+            const start = Math.max(1, Number(args.startLine || args.start_line || args.StartLine) || 1);
+            const end = Math.min(allLines.length, Number(args.endLine || args.end_line || args.EndLine) || Math.min(allLines.length, start + 299));
             const shownLines = Math.max(0, end - start + 1);
             const numbered = allLines
                 .slice(start - 1, end)
@@ -330,7 +337,7 @@ export async function executeAgentTool(callOrName, maybeArgs, options = {}) {
         }
 
         if (name === 'write_file') {
-            const rawPath = args.path || args.file_path || args.filePath || '';
+            const rawPath = args.path || args.file_path || args.filePath || args.Path || '';
             if (!rawPath) {
                 return buildToolReturn({ ok: false, summary: '缺少文件路径', output: 'Missing required parameter: path' });
             }
@@ -339,7 +346,7 @@ export async function executeAgentTool(callOrName, maybeArgs, options = {}) {
             if (!fs.existsSync(dir)) {
                 fs.mkdirSync(dir, { recursive: true });
             }
-            const content = String(args.content ?? '');
+            const content = String(args.content ?? args.Content ?? '');
             const bytesWritten = Buffer.byteLength(content, 'utf-8');
             fs.writeFileSync(targetPath, content, 'utf-8');
             const lineCount = content.split(/\r?\n/).length;
@@ -351,8 +358,8 @@ export async function executeAgentTool(callOrName, maybeArgs, options = {}) {
             });
         }
 
-        if (name === 'replace_in_file') {
-            const rawPath = args.path || args.file_path || args.filePath || '';
+        if (name === 'replace_in_file' || name === 'edit_file') {
+            const rawPath = args.path || args.file_path || args.filePath || args.Path || '';
             if (!rawPath) {
                 return buildToolReturn({ ok: false, summary: '缺少文件路径', output: 'Missing required parameter: path' });
             }
@@ -361,10 +368,10 @@ export async function executeAgentTool(callOrName, maybeArgs, options = {}) {
                 return buildToolReturn({ ok: false, summary: '文件不存在', output: `File not found: ${targetPath}` });
             }
             const raw = fs.readFileSync(targetPath, 'utf-8');
-            const target = String(args.targetContent ?? args.old_str ?? args.oldText ?? args.search ?? '');
-            const replacement = String(args.replacementContent ?? args.new_str ?? args.newText ?? args.replace ?? '');
+            const target = String(args.targetContent ?? args.Target ?? args.target ?? args.old_str ?? args.oldText ?? args.search ?? '');
+            const replacement = String(args.replacementContent ?? args.Replacement ?? args.replacement ?? args.new_str ?? args.newText ?? args.replace ?? '');
             if (!target) {
-                return buildToolReturn({ ok: false, summary: '缺少 targetContent', output: 'targetContent cannot be empty' });
+                return buildToolReturn({ ok: false, summary: '缺少 targetContent / Target', output: 'targetContent / Target cannot be empty' });
             }
             const hasCrlf = raw.includes('\r\n');
             const normRaw = raw.replace(/\r\n/g, '\n');
@@ -473,7 +480,7 @@ export async function executeAgentTool(callOrName, maybeArgs, options = {}) {
         }
 
         if (name === 'run_command') {
-            const cmd = String(args.command || args.cmd || '').trim();
+            const cmd = String(args.command || args.cmd || args.CommandLine || '').trim();
             const resolvedCwd = args.cwd ? resolveWorkspacePath(args.cwd) : DEFAULT_WORKSPACE_DIR;
             const cwd = fs.existsSync(resolvedCwd) ? resolvedCwd : DEFAULT_WORKSPACE_DIR;
             if (!cmd) {
@@ -513,10 +520,60 @@ export async function executeAgentTool(callOrName, maybeArgs, options = {}) {
             });
         }
 
+        if (name === 'browser' || name === 'fetch_web' || name === 'read_url') {
+            const rawUrl = String(args.url || args.targetUrl || args.link || args.href || '').trim();
+            if (!rawUrl) {
+                return buildToolReturn({ ok: false, summary: '缺少 URL 参数', output: 'Missing required parameter: url' });
+            }
+            try {
+                const targetUrl = /^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`;
+                const fetchRes = await fetch(targetUrl, {
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+                    },
+                    signal: options.signal || AbortSignal.timeout(15000)
+                });
+                if (!fetchRes.ok) {
+                    return buildToolReturn({
+                        ok: false,
+                        summary: `HTTP ${fetchRes.status}`,
+                        output: `Failed to fetch ${targetUrl}: HTTP ${fetchRes.status} ${fetchRes.statusText}`
+                    });
+                }
+                const html = await fetchRes.text();
+                const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+                const title = titleMatch ? titleMatch[1].trim() : targetUrl;
+                const textOnly = html
+                    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+                    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+                    .replace(/<[^>]+>/g, ' ')
+                    .replace(/&nbsp;/g, ' ')
+                    .replace(/&amp;/g, '&')
+                    .replace(/&lt;/g, '<')
+                    .replace(/&gt;/g, '>')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+                const content = textOnly.slice(0, 8000);
+                return buildToolReturn({
+                    ok: true,
+                    summary: `已读取: ${title.slice(0, 30)}`,
+                    output: `Title: ${title}\nURL: ${targetUrl}\n\nPage Content:\n${content}`,
+                    extra: { title, url: targetUrl, length: content.length }
+                });
+            } catch (e) {
+                return buildToolReturn({
+                    ok: false,
+                    summary: '网络读取失败',
+                    output: `Error fetching ${rawUrl}: ${e.message}`
+                });
+            }
+        }
+
         return buildToolReturn({
             ok: false,
             summary: `未知工具 ${name}`,
-            output: `Unknown tool: ${name}. Available tools: read_file, write_file, replace_in_file, list_dir, search_files, run_command.`
+            output: `Unknown tool: ${name}. Available tools: read_file, write_file, replace_in_file, edit_file, list_dir, search_files, run_command, browser.`
         });
     } catch (err) {
         return buildToolReturn({

@@ -78,14 +78,18 @@ async function install(options){
     if(backend&&(backend.activeRequests>0||(!rendererChecked&&backend.activeRequests===undefined)))throw Error('无法确认旧后端空闲；请打开 Antigravity 后重新安装');
     const allowed=[runtime,oldRuntime,options.legacy?path.resolve(options.legacy):source].filter(Boolean);
     if(backend){
-      const scripts=allowed.map(dir=>path.join(dir,'antigravity-account-switcher','core','daemon.mjs').replace(/'/g,"''"));
-      const verified=execFileSync('powershell.exe',['-NoProfile','-Command',`$p=Get-CimInstance Win32_Process -Filter 'ProcessId=${Number(backend.pid)}'; if($p -and $p.Name -eq 'node.exe' -and (@(${scripts.map(s=>"'"+s+"'").join(',')}) | Where-Object { $p.CommandLine.Contains($_) })) { 'owned' }`],{windowsHide:true,encoding:'utf8'}).trim();
-      if(verified!=='owned')throw Error('端口对应其他安装的后端；未停止该进程');
+      if(process.platform==='win32'){
+        const scripts=allowed.map(dir=>path.join(dir,'antigravity-account-switcher','core','daemon.mjs').replace(/'/g,"''"));
+        const verified=execFileSync('powershell.exe',['-NoProfile','-Command',`$p=Get-CimInstance Win32_Process -Filter 'ProcessId=${Number(backend.pid)}'; if($p -and $p.Name -eq 'node.exe' -and (@(${scripts.map(s=>"'"+s+"'").join(',')}) | Where-Object { $p.CommandLine.Contains($_) })) { 'owned' }`],{windowsHide:true,encoding:'utf8'}).trim();
+        if(verified!=='owned')throw Error('端口对应其他安装的后端；未停止该进程');
+      }
     }
     // Disable the previous recovery task before replacing its runtime. Stop only
     // guardians whose exact script paths belong to this app's existing hook.
 // guardian disabled
-    for(const dir of new Set([runtime,oldRuntime].filter(Boolean))){const guardian=path.join(dir,'antigravity-claude-skin','tools','auto-heal-daemon.js').replace(/'/g,"''");execFileSync('powershell.exe',['-NoProfile','-Command',`Get-CimInstance Win32_Process -Filter "Name='node.exe'" | Where-Object { $_.CommandLine.Contains('${guardian}') } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }`],{windowsHide:true});}
+    if(process.platform==='win32'){
+      for(const dir of new Set([runtime,oldRuntime].filter(Boolean))){const guardian=path.join(dir,'antigravity-claude-skin','tools','auto-heal-daemon.js').replace(/'/g,"''");execFileSync('powershell.exe',['-NoProfile','-Command',`Get-CimInstance Win32_Process -Filter "Name='node.exe'" | Where-Object { $_.CommandLine.Contains('${guardian}') } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }`],{windowsHide:true});}
+    }
     if(backend)process.kill(backend.pid);
   }
   if(source!==runtime){fs.mkdirSync(runtime,{recursive:true});console.log('[Install] Copying core files');copyRuntime(source,runtime);console.log('[Install] Preserving local data');migrateData(source,runtime);}

@@ -1,0 +1,22 @@
+{
+  "name": "antigravity-api-manager",
+  "version": "2.3.0",
+  "description": "Antigravity API Manager: 第三方 API / 中转模型高效调度与多账号管理套件 (支持 Antigravity 2.26+)",
+  "main": "suite/launch.cjs",
+  "scripts": {
+    "test": "node antigravity-model-switcher/tools/test-native-proxy.mjs",
+    "build:i18n": "node antigravity-claude-skin/tools/build-i18n.js",
+    "install:suite": "node suite/install.cjs"
+  },
+  "keywords": [
+    "antigravity",
+    "api-manager",
+    "model-switcher",
+    "deepseek",
+    "claude",
+    "openai",
+    "i18n"
+  ],
+  "author": "garydak",
+  "license": "MIT"
+}

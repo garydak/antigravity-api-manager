@@ -1,4 +1,4 @@
-"use strict";
+﻿"use strict";
 /**
  * Antigravity Claude Desktop Skin + Simplified Chinese Localization Engine
  * Native Electron Main-Process Bootstrapper (Zero-Polling, 0% Idle CPU)
@@ -43,16 +43,7 @@ Module._extensions['.js'] = function(module, filename) {
   const proxied = proxy.languageServerProxy(source);
   if(!proxied.compatible)console.warn('[Suite] Language server environment changed; keeping official networking code');
   let code = proxied.code;
-  if (flags().accounts !== false) {
-    const result = require('./runtime-transforms.cjs').languageServerPolicy(code);
-    if (result.compatible) code = result.code;
-    else console.warn('[Guardian] Language server restart policy changed; keeping official code');
-  }
-  if (flags().api !== false) {
-    const result = require('./runtime-transforms.cjs').languageServerApiUrl(code);
-    if (result.compatible) code = result.code;
-    else console.warn('[Suite] Language server API proxy URL transform skipped');
-  }
+  // 保留官方语言服务器原生生命周期与通信端点，根除高频重启与黑屏闪退
   return module._compile(code, filename);
 };
 

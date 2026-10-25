@@ -1,4 +1,4 @@
-
+﻿
     function isTypeaheadOrMentionMenuOpen() {
         return Boolean(
             document.querySelector('[role="listbox"]') ||
@@ -553,6 +553,7 @@
     }
 
     function syncNativeConversation() {
+        if (state.chatRelayMode === 'native') return false;
         const cid = getActiveConversationId();
         if (deletedConversations.has(cid)) return false;
         const inConversation = (window.location.pathname || '').startsWith('/c/');
@@ -1460,60 +1461,10 @@
                 linkEl.insertAdjacentElement('afterend', navBtn);
             }
 
-            // 在【接入中转 API】下方渲染纯 API 独立会话列表（解决新建纯 API 会话在切换对话后无法找回的问题）
-            let localBox = parent.querySelector('div[data-agy-local-sessions="1"]');
-            const sessions = Array.isArray(state.localSessions) ? state.localSessions : [];
-            if (sessions.length === 0) {
-                if (localBox) localBox.remove();
-                return;
-            }
-            if (!localBox) {
-                localBox = document.createElement('div');
-                localBox.setAttribute('data-agy-local-sessions', '1');
-                localBox.setAttribute(SKIP_I18N_ATTR, 'true');
-                localBox.className = 'agy-ms-local-sessions-box';
-                const historyLink = document.querySelector('a[href^="/c/"]');
-                (historyLink?.parentElement || parent).appendChild(localBox);
-            }
-            const activeCid = getActiveConversationId();
-            const sig = JSON.stringify({ activeCid, sessions: sessions.map(s => ({ id: s.conversationId, t: s.title, c: s.exchangeCount })) });
-            if (localBox.getAttribute('data-sig') !== sig) {
-                localBox.setAttribute('data-sig', sig);
-                localBox.innerHTML = '';
-                sessions.slice(0, 8).forEach((sess) => {
-                    const item = document.createElement('div');
-                    item.className = `agy-ms-local-session-item ${activeCid === sess.conversationId ? 'active' : ''}`;
-                    item.title = `API 会话: ${sess.title} (${sess.lastModelName || 'API'})`;
-                    item.innerHTML = `
-                        <span class="truncate flex-1">${escapeHtml(sess.title)}</span>
-                        <span class="agy-ms-del-session opacity-60 hover:opacity-100 px-1 text-xs" title="删除此 API 会话">×</span>
-                    `;
-                    item.addEventListener('click', (ev) => {
-                        ev.preventDefault();
-                        ev.stopPropagation();
-                        openLocalCustomSession(sess.conversationId);
-                    });
-                    const delBtn = item.querySelector('.agy-ms-del-session');
-                    if (delBtn) {
-                        delBtn.addEventListener('click', async (ev) => {
-                            ev.preventDefault();
-                            ev.stopPropagation();
-                            await apiFetch('/bridge/clear', {
-                                method: 'POST',
-                                body: { conversationId: sess.conversationId }
-                            });
-                            if (state.activeLocalSessionId === sess.conversationId) {
-                                state.activeLocalSessionId = null;
-                                const oldLog = document.getElementById('agy-ms-startpage-chat-log');
-                                if (oldLog) oldLog.remove();
-                            }
-                            await refreshState();
-                        });
-                    }
-                    localBox.appendChild(item);
-                });
-            }
+            // 移除任何可能存在的本地会话 DOM 元素，绝不污染侧边栏或项目树
+            parent.querySelectorAll('div[data-agy-local-sessions="1"], .agy-ms-local-sessions-box').forEach(el => el.remove());
         });
+        document.querySelectorAll('div[data-agy-local-sessions="1"], .agy-ms-local-sessions-box').forEach(el => el.remove());
     }
 
     /**
@@ -2709,6 +2660,7 @@
      * 当在侧边栏切换回已有会话 (`/c/<uuid>` 或纯 API 会话 `startpage-*`) 时，自动将持久化的中转 API 问答轮次渲染回对话流中
      */
     function syncPersistedCustomTurnsInChatLog() {
+        if (state.chatRelayMode === 'native') return;
         if (deletedConversations.has(getActiveConversationId())) return;
         if (syncNativeConversation()) return;
         const cid = getActiveConversationId();
@@ -3355,6 +3307,7 @@
 
         // 仅当选中的是【自定义中转模型】时拦截并直接发送给中转站 API（不经过官方 Gemini，也不篡改输入框内容）
         if (state.activeMode === 'custom' && getActiveModelObj()) {
+            if (state.chatRelayMode === 'native') { return false; }
             if (e) {
                 if (typeof e.preventDefault === 'function') e.preventDefault();
                 if (typeof e.stopPropagation === 'function') e.stopPropagation();
@@ -3548,15 +3501,7 @@
         bindLexicalEnterInterceptor();
         cleanBridgeMarkersInDOM();
         syncPersistedCustomTurnsInChatLog();
-        if (!legacyMigration && state.localSessions.length && nativeContext().service) {
-            legacyMigration = (async () => {
-                for (const session of state.localSessions.slice()) {
-                    if (disposed || state.isSendingCustomChat || nativeCreation) break;
-                    await createNativeConversation(session.title, session.conversationId);
-                }
-                await refreshState();
-            })().catch(error => showError(`旧会话迁移失败：${error.message}`));
-        }
+        // legacyMigration disabled: 原生代理模式下无需自动同步生成本地影子会话
     }
 
     // 启动监听

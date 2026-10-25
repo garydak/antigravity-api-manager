@@ -344,7 +344,7 @@ export function deleteModel(id) {
 export function setSelectionState({ activeMode, activeModelId, officialModelLabel, chatRelayMode }) {
   const store = loadModelStore();
   if (activeMode !== undefined && !["official", "custom"].includes(activeMode)) throw new Error("无效的模型切换模式");
-  if (chatRelayMode !== undefined && !["direct", "mcp"].includes(chatRelayMode)) throw new Error("无效的中转模式");
+  if (chatRelayMode !== undefined && !["direct", "mcp", "native"].includes(chatRelayMode)) throw new Error("无效的中转模式");
   if (activeMode === "official" || activeMode === "custom") {
     store.activeMode = activeMode;
   }
@@ -364,7 +364,7 @@ export function setSelectionState({ activeMode, activeModelId, officialModelLabe
   if (typeof officialModelLabel === "string") {
     store.officialModelLabel = officialModelLabel;
   }
-  if (chatRelayMode === "direct" || chatRelayMode === "mcp") {
+  if (["direct", "mcp", "native"].includes(chatRelayMode)) {
     store.chatRelayMode = chatRelayMode;
   }
   saveModelStore(store);

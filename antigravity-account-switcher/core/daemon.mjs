@@ -1,4 +1,4 @@
-import http from "node:http";
+﻿import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -78,7 +78,7 @@ export function ensureLocalSwitcherServer() {
         return;
       }
 
-      if (url.pathname.startsWith("/v1beta/") || url.pathname.startsWith("/gemini/")) {
+      if (url.pathname.startsWith("/v1beta/") || url.pathname.startsWith("/v1/") || url.pathname.startsWith("/gemini/") || url.pathname.includes(":streamGenerateContent") || url.pathname.includes(":generateContent")) {
         await handleNativeProxyRequest(req, res);
         return;
       }
@@ -147,16 +147,25 @@ ensureLocalSwitcherServer();
 // its app is closed, rather than becoming an unwanted permanent background job.
 if(process.platform==='win32'&&!globalThis.__AGY_INPROC_SWITCHER__){
   let checking=false;
+  let missedChecks=0;
   const lifecycle=setInterval(()=>{
     if(checking||getActiveModelRequestCount()>0)return;
     try{
       if(suiteSettings.readSettings().guardian)return;
-      const manifestFile=path.join(suiteSettings.root,'data','install-manifest.json');if(!fs.existsSync(manifestFile))return;
-      const manifest=JSON.parse(fs.readFileSync(manifestFile,'utf8'));
-      const exe=path.join(path.dirname(manifest.resourcesDir),'Antigravity.exe').replace(/'/g,"''");
       checking=true;
-      execFile('powershell.exe',['-NoProfile','-NonInteractive','-Command',`if(Get-CimInstance Win32_Process -Filter "Name='Antigravity.exe'" | Where-Object { $_.ExecutablePath -eq '${exe}' }) { 'running' }`],{windowsHide:true,timeout:5000,encoding:'utf8'},(error,stdout)=>{
-        checking=false;if(!error&&stdout.trim()!=='running'&&getActiveModelRequestCount()===0){log('App closed; recovery disabled, retiring backend');process.exit(0);}
+      execFile('powershell.exe',['-NoProfile','-NonInteractive','-Command',`if(Get-Process -Name Antigravity -ErrorAction SilentlyContinue) { 'running' }`],{windowsHide:true,timeout:5000,encoding:'utf8'},(error,stdout)=>{
+        checking=false;
+        if(!error && stdout.trim() === 'running') {
+          missedChecks = 0;
+          return;
+        }
+        if(!error && stdout.trim() !== 'running' && getActiveModelRequestCount() === 0){
+          missedChecks++;
+          if (missedChecks >= 6) { // 连续 6 次检测（至少 2 分钟）无任何 Antigravity 进程才优雅退出
+            log('App closed for 2+ minutes; retiring backend');
+            process.exit(0);
+          }
+        }
       });
     }catch(error){checking=false;log('Lifecycle check: '+error.message);}
   },20000);lifecycle.unref();

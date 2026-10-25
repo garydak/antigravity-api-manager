@@ -1,9 +1,9 @@
 /**
- * Antigravity Native Proxy Server (Gemini ➔ OpenAI/Claude 反向代理服务)
- * ------------------------------------------------------------------
+ * Antigravity Native Proxy Server (Gemini ➔ OpenAI/Claude 反向代理服务 - 动态双模版)
+ * ----------------------------------------------------------------------------------
  * 拦截 language_server.exe 的请求：
- * - 当为官方模型时：透明透传至 https://generativelanguage.googleapis.com
- * - 当为中转模型时：无缝转换为 OpenAI/Claude 协议调用中转站，并将 Tool Calls 封装为原生 Gemini 格式
+ * - 方案一 (官方模型模式 / activeMode === 'official')：透明透传至 Google 官方端点
+ * - 方案二 (中转模型模式 / activeMode === 'custom')：无缝转换为 OpenAI/Claude 协议，将 Antigravity 全套原生工具 (browser, 终端, Diff, MCP) 转给中转站
  */
 
 import http from 'node:http';
@@ -15,45 +15,46 @@ import { geminiToOpenAI, geminiToClaude, createGeminiChunkFormatter } from './ge
 const GOOGLE_API_HOST = 'generativelanguage.googleapis.com';
 
 /**
- * 将请求原样透传至 Google 官方服务器
+ * 方案一：将请求原样透明透传至 Google 官方服务器
  */
-function forwardToGoogle(req, res, bodyBuffer) {
-    const options = {
-        hostname: GOOGLE_API_HOST,
-        port: 443,
-        path: req.url,
-        method: req.method,
-        headers: {
-            ...req.headers,
-            host: GOOGLE_API_HOST
+async function forwardToGoogle(req, res, bodyBuffer) {
+    const googleUrl = `https://${GOOGLE_API_HOST}${req.url}`;
+    try {
+        const forwardHeaders = { ...req.headers, host: GOOGLE_API_HOST };
+        delete forwardHeaders['content-length'];
+        
+        const fetchRes = await fetch(googleUrl, {
+            method: req.method,
+            headers: forwardHeaders,
+            body: ['GET', 'HEAD'].includes(req.method) ? undefined : bodyBuffer
+        });
+
+        const headers = {};
+        fetchRes.headers.forEach((val, key) => {
+            headers[key] = val;
+        });
+
+        res.writeHead(fetchRes.status, headers);
+        if (fetchRes.body) {
+            const reader = fetchRes.body.getReader();
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                res.write(value);
+            }
         }
-    };
-
-    // 移除潜在冲突头
-    delete options.headers['content-length'];
-    if (bodyBuffer && bodyBuffer.length > 0) {
-        options.headers['content-length'] = bodyBuffer.length;
-    }
-
-    const proxyReq = https.request(options, proxyRes => {
-        res.writeHead(proxyRes.statusCode, proxyRes.headers);
-        proxyRes.pipe(res);
-    });
-
-    proxyReq.on('error', err => {
+        res.end();
+    } catch (err) {
         console.error('[NativeProxy] Forward to Google failed:', err.message);
-        res.writeHead(502, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: { code: 502, message: `Proxy to Google error: ${err.message}` } }));
-    });
-
-    if (bodyBuffer && bodyBuffer.length > 0) {
-        proxyReq.write(bodyBuffer);
+        if (!res.headersSent) {
+            res.writeHead(502, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: { code: 502, message: `Proxy to Google error: ${err.message}` } }));
+        }
     }
-    proxyReq.end();
 }
 
 /**
- * 处理中转模型生成请求
+ * 方案二：处理中转模型生成请求并驱动原生工具
  */
 async function handleCustomGenerate(req, res, geminiBody, targetModel) {
     const formatter = createGeminiChunkFormatter();
@@ -132,13 +133,13 @@ async function streamOpenAIChat(res, geminiBody, targetModel, formatter) {
                 const choice = data.choices?.[0];
                 if (!choice) continue;
 
-                // 1. 处理思考内容 (Reasoning)
+                // 1. 处理思考内容 (Reasoning / Thinking) - 输出原生 thought: true
                 const reasoning = choice.delta?.reasoning_content || choice.delta?.reasoning;
                 if (reasoning) {
-                    res.write(formatter.formatTextChunk(reasoning));
+                    res.write(formatter.formatThoughtChunk(reasoning));
                 }
 
-                // 2. 处理正文内容
+                // 2. 处理正文文本内容
                 const content = choice.delta?.content;
                 if (content) {
                     res.write(formatter.formatTextChunk(content));
@@ -208,8 +209,7 @@ async function streamClaudeChat(res, geminiBody, targetModel, formatter) {
     const reader = fetchRes.body.getReader();
     const decoder = new TextDecoder('utf-8');
     let buffer = '';
-    let currentToolName = '';
-    let currentToolInput = '';
+    const toolBlocksMap = new Map();
 
     while (true) {
         const { done, value } = await reader.read();
@@ -226,21 +226,28 @@ async function streamClaudeChat(res, geminiBody, targetModel, formatter) {
             try {
                 const eventData = JSON.parse(trimmed.slice(5).trim());
                 const type = eventData.type;
+                const idx = eventData.index ?? 0;
 
                 if (type === 'content_block_start' && eventData.content_block?.type === 'tool_use') {
-                    currentToolName = eventData.content_block.name;
-                    currentToolInput = '';
+                    toolBlocksMap.set(idx, {
+                        name: eventData.content_block.name,
+                        input: ''
+                    });
                 } else if (type === 'content_block_delta') {
-                    if (eventData.delta?.type === 'text_delta') {
+                    if (eventData.delta?.type === 'thinking_delta') {
+                        res.write(formatter.formatThoughtChunk(eventData.delta.thinking));
+                    } else if (eventData.delta?.type === 'text_delta') {
                         res.write(formatter.formatTextChunk(eventData.delta.text));
                     } else if (eventData.delta?.type === 'input_json_delta') {
-                        currentToolInput += eventData.delta.partial_json;
+                        const cur = toolBlocksMap.get(idx);
+                        if (cur) {
+                            cur.input += eventData.delta.partial_json;
+                        }
                     }
                 } else if (type === 'content_block_stop') {
-                    if (currentToolName) {
-                        res.write(formatter.formatFunctionCallChunk(currentToolName, currentToolInput));
-                        currentToolName = '';
-                        currentToolInput = '';
+                    const finishedTool = toolBlocksMap.get(idx);
+                    if (finishedTool && finishedTool.name) {
+                        res.write(formatter.formatFunctionCallChunk(finishedTool.name, finishedTool.input));
                     }
                 }
             } catch {
@@ -254,7 +261,7 @@ async function streamClaudeChat(res, geminiBody, targetModel, formatter) {
 }
 
 /**
- * 核心请求分发器
+ * 核心请求分发器 (双模动态切换入口)
  */
 export async function handleNativeProxyRequest(req, res) {
     const chunks = [];
@@ -264,28 +271,32 @@ export async function handleNativeProxyRequest(req, res) {
         const urlObj = new URL(req.url, 'http://127.0.0.1');
         const pathname = urlObj.pathname;
 
-        // 判断是否为生成请求
-        const isGenerateRequest = pathname.includes(':streamGenerateContent') || pathname.includes(':generateContent');
+        // 判断是否为大模型生成请求
+        const isGenerateRequest = pathname.includes(':streamGenerateContent') || 
+                                  pathname.includes(':generateContent') ||
+                                  pathname.includes('/streamGenerateContent') ||
+                                  pathname.includes('/generateContent');
 
-        // 读取当前模型配置
+        // 读取当前模型配置状态
         const store = loadModelStore();
         const isCustomActive = store.activeMode === 'custom';
         const targetModel = isCustomActive ? getActiveCustomModel() : null;
 
-        // 若不是模型生成请求，或当前处于官方模型模式，或中转模型配置未就绪，直接透传回 Google 官方
+        // 方案一：当前处于官方模型模式 (activeMode === 'official')，或非生成请求，透明透传回 Google 官方
         if (!isGenerateRequest || !isCustomActive || !targetModel || !targetModel.apiKey) {
-            forwardToGoogle(req, res, bodyBuffer);
+            console.log(`[NativeProxy] [方案一] 官方模型直通 -> ${req.method} ${pathname}`);
+            await forwardToGoogle(req, res, bodyBuffer);
             return;
         }
 
-        // 解析 Gemini 请求体
+        // 方案二：当前处于中转模型模式 (activeMode === 'custom')，截获请求并转换为中转站协议以驱动原生工具
         try {
             const geminiBody = JSON.parse(bodyBuffer.toString('utf-8'));
-            console.log(`[NativeProxy] Intercepted Gemini request -> Forwarding to custom model [${targetModel.name || targetModel.modelId}] (${targetModel.protocol})`);
+            console.log(`[NativeProxy] [方案二] 中转原生工具代理 -> 转发给 [${targetModel.name || targetModel.modelId}] (${targetModel.protocol})`);
             await handleCustomGenerate(req, res, geminiBody, targetModel);
         } catch (err) {
-            console.error('[NativeProxy] Failed to parse request body:', err);
-            forwardToGoogle(req, res, bodyBuffer);
+            console.error('[NativeProxy] Failed to parse request body, falling back to official:', err);
+            await forwardToGoogle(req, res, bodyBuffer);
         }
     });
 }

@@ -93,7 +93,10 @@ function resolveResourcesDir(options = {}) {
   const programFiles = process.env.PROGRAMFILES || "C:\\Program Files";
   const programFilesX86 = process.env["PROGRAMFILES(X86)"] || "C:\\Program Files (x86)";
 
-  const candidates = [
+  const candidates = process.platform === 'darwin' ? [
+    "/Applications/Antigravity.app/Contents/Resources",
+    path.join(os.homedir(), "Applications", "Antigravity.app", "Contents", "Resources"),
+  ] : [
     path.join(localAppData, "Programs", "Antigravity", "resources"),
     path.join(os.homedir(), "AppData", "Local", "Programs", "Antigravity", "resources"),
     path.join(localAppData, "Antigravity", "resources"),
@@ -112,7 +115,9 @@ function resolveResourcesDir(options = {}) {
   }
 
   // Default fallback to standard Per-User Electron installer location
-  return path.join(localAppData, "Programs", "Antigravity", "resources");
+  return process.platform === 'darwin'
+    ? "/Applications/Antigravity.app/Contents/Resources"
+    : path.join(localAppData, "Programs", "Antigravity", "resources");
 }
 
 function resolveNodeBin() {
@@ -127,7 +132,11 @@ function resolveNodeBin() {
     saveInstallPathsCache({ nodeBin: process.execPath });
     return process.execPath;
   }
-  const candidates = [
+  const candidates = process.platform === 'darwin' ? [
+    "/usr/local/bin/node",
+    "/opt/homebrew/bin/node",
+    path.join(os.homedir(), ".nvm/versions/node", process.version || "current", "bin/node"),
+  ] : [
     path.join(process.env.PROGRAMFILES || "C:\\Program Files", "nodejs", "node.exe"),
     path.join(process.env.LOCALAPPDATA || "", "Programs", "nodejs", "node.exe"),
     path.join(process.env.NVM_SYMLINK || "C:\\Program Files\\nodejs", "node.exe"),
