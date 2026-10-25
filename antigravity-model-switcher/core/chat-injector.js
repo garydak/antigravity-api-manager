@@ -2612,17 +2612,27 @@
     /**
      * 在聊天卡片区渲染敏感工具（如 Google Chrome 浏览器控制）的用户确认授权卡片
      */
+    /**
+     * 在界面显著位置（输入框上方及工具卡片区）渲染敏感工具（如 Google Chrome 浏览器控制）的用户确认授权卡片
+     */
     function renderToolApprovalCard(toolStepsEl, approvalData) {
-        if (!toolStepsEl || !approvalData || !approvalData.approvalId) return;
-        toolStepsEl.style.display = 'flex';
+        if (!approvalData || !approvalData.approvalId) return;
 
-        let card = toolStepsEl.querySelector(`[data-approval-id="${approvalData.approvalId}"]`);
+        // 优先挂载在输入框容器上方（保证 100% 显眼可见，绝不因气泡脱机而丢失），若没有则挂在当前聊天轮次
+        const composerBox = document.querySelector('[data-testid="agent-input-box"]') || document.querySelector('.relative.flex.flex-col');
+        const mountParent = composerBox || (toolStepsEl?.isConnected ? toolStepsEl : document.body);
+
+        let card = document.querySelector(`[data-approval-id="${approvalData.approvalId}"]`);
         if (!card) {
             card = document.createElement('div');
             card.className = 'agy-ms-approval-card';
             card.setAttribute('data-approval-id', approvalData.approvalId);
             card.setAttribute(SKIP_I18N_ATTR, 'true');
-            toolStepsEl.appendChild(card);
+            if (composerBox && composerBox.firstChild) {
+                composerBox.insertBefore(card, composerBox.firstChild);
+            } else if (mountParent) {
+                mountParent.appendChild(card);
+            }
         }
 
         const title = approvalData.title || 'Google Chrome 浏览器控制授权';
@@ -2638,8 +2648,8 @@
                 <div class="agy-ms-approval-desc">${escapeHtml(desc)}</div>
                 ${targetUrl}
                 <label class="agy-ms-approval-remember">
-                    <input type="checkbox" class="agy-ms-approval-check" />
-                    <span>记住本次会话 (后续自动允许 Chrome 浏览器操作)</span>
+                    <input type="checkbox" class="agy-ms-approval-check" checked />
+                    <span>记住本次会话 (后续自动允许 Chrome 操作，无需重复确认)</span>
                 </label>
             </div>
             <div class="agy-ms-approval-actions">
@@ -2660,9 +2670,12 @@
 
             card.querySelector('.agy-ms-approval-actions').innerHTML = `
                 <span style="font-size:12px;color:${approved ? '#059669' : '#dc2626'};font-weight:500;">
-                    ${approved ? '✓ 已允许授权，正在连接并启动 Chrome...' : '✕ 已拒绝授权'}
+                    ${approved ? '✓ 已允许授权，正在启动并控制 Chrome 浏览器...' : '✕ 已取消操作'}
                 </span>
             `;
+
+            // 延迟 2 秒后自动移除该卡片，保持界面清爽
+            setTimeout(() => { card.style.opacity = '0'; setTimeout(() => card.remove(), 300); }, 2000);
 
             try {
                 await fetch('http://127.0.0.1:19823/api/models/tool-approval', {
@@ -3271,7 +3284,7 @@
                 }
             }
         } finally {
-            statusElement?.remove();
+            statusElement?.remove(); document.querySelectorAll('.agy-ms-approval-card').forEach(c => c.remove());
             if (activeRunStatus?.element === statusElement) activeRunStatus = null;
             clearInterval(statusInterval);
             clearTimeout(renderTimer);

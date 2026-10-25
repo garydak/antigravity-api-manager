@@ -888,8 +888,8 @@ export async function handleModelApiRequest(req, res, pathname, searchParams = n
                         const userDecision = await new Promise((resolve) => {
                             const timer = setTimeout(() => {
                                 pendingApprovals.delete(approvalId);
-                                resolve({ approved: false, reason: '授权确认超时 (120 秒)' });
-                            }, 120000);
+                                resolve({ approved: false, reason: '授权确认超时 (45 秒)' });
+                            }, 45000);
                             pendingApprovals.set(approvalId, {
                                 resolve: (dec) => {
                                     clearTimeout(timer);
