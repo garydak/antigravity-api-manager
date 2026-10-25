@@ -812,6 +812,7 @@
             if (pathname !== lastKnownPathname) {
                 isOpeningLocalSession = false;
                 lastKnownPathname = pathname;
+                setTimeout(refreshState, 10);
             }
             const m = pathname.match(/\/c\/([a-f0-9-]{16,})/i);
             if (m && m[1]) return m[1];
@@ -854,8 +855,12 @@
     async function selectModel(mode, modelId, effort) {
         const sequence = ++selectionSequence;
         selectionPending = true;
+        const cid = getActiveConversationId();
         const operation = selectionQueue.then(() => apiFetch(effort === undefined ? '/select' : '/reasoning', {
-            method: 'POST', body: effort === undefined ? { mode, modelId } : { modelId, effort, activate: true }
+            method: 'POST',
+            body: effort === undefined
+                ? { conversationId: cid, mode, modelId }
+                : { conversationId: cid, modelId, effort, activate: true }
         }));
         selectionQueue = operation.catch(() => {});
         try {
@@ -3716,6 +3721,8 @@
     const pollTimer = setInterval(refreshState, 4000);
     const onSuiteSettings=()=>syncUsageDisplay();
     window.addEventListener('agy-suite-settings-updated',onSuiteSettings);
+    window.addEventListener('popstate', () => { setTimeout(refreshState, 20); });
+    window.addEventListener('hashchange', () => { setTimeout(refreshState, 20); });
     installNativeDeletionTracking();
     syncAllUI();
     refreshState();

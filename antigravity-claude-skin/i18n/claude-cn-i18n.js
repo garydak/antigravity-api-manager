@@ -1,4 +1,4 @@
-(()=>{if(window.__agyRendererBundleId==="45c854e39727ad0443bf0fd3507388a2091bede478200f96cdd7887e6e762c76"&&window.__agySuite)return;if(window.__AGY_MODEL_SWITCHER?.getState().isSendingCustomChat)return;
+(()=>{if(window.__agyRendererBundleId==="e330a3d830094d1403beef8aba1eb8b9c401cbdfda38b295e6f9d3495a5228c4"&&window.__agySuite)return;if(window.__AGY_MODEL_SWITCHER?.getState().isSendingCustomChat)return;
 window.__agySuiteModules={i18n:function(){
 '__ANTIGRAVITY_CHINESE_LOCALIZATION_START__';
 (() => {
@@ -5728,6 +5728,7 @@ window.__agySuiteModules.api=function(){
             if (pathname !== lastKnownPathname) {
                 isOpeningLocalSession = false;
                 lastKnownPathname = pathname;
+                setTimeout(refreshState, 10);
             }
             const m = pathname.match(/\/c\/([a-f0-9-]{16,})/i);
             if (m && m[1]) return m[1];
@@ -5770,8 +5771,12 @@ window.__agySuiteModules.api=function(){
     async function selectModel(mode, modelId, effort) {
         const sequence = ++selectionSequence;
         selectionPending = true;
+        const cid = getActiveConversationId();
         const operation = selectionQueue.then(() => apiFetch(effort === undefined ? '/select' : '/reasoning', {
-            method: 'POST', body: effort === undefined ? { mode, modelId } : { modelId, effort, activate: true }
+            method: 'POST',
+            body: effort === undefined
+                ? { conversationId: cid, mode, modelId }
+                : { conversationId: cid, modelId, effort, activate: true }
         }));
         selectionQueue = operation.catch(() => {});
         try {
@@ -8632,6 +8637,8 @@ window.__agySuiteModules.api=function(){
     const pollTimer = setInterval(refreshState, 4000);
     const onSuiteSettings=()=>syncUsageDisplay();
     window.addEventListener('agy-suite-settings-updated',onSuiteSettings);
+    window.addEventListener('popstate', () => { setTimeout(refreshState, 20); });
+    window.addEventListener('hashchange', () => { setTimeout(refreshState, 20); });
     installNativeDeletionTracking();
     syncAllUI();
     refreshState();
@@ -8827,4 +8834,4 @@ window.__agySuiteTheme="";
   window.__agySuite={apply,save,getSettings:()=>settings,refresh,openCenter,closeCenter,isSaving:()=>saving};
   window.__agySuiteCleanup=()=>{disposed=true;observer.disconnect();clearInterval(poll);document.removeEventListener('keydown',onKey);style.remove();document.getElementById('agy-suite-center')?.remove();document.getElementById('agy-suite-backdrop')?.remove();document.getElementById('agy-suite-sidebar-button')?.remove();document.querySelector('.agy-suite-greeting')?.remove();};
 })();
-window.__agyRendererBundleId="45c854e39727ad0443bf0fd3507388a2091bede478200f96cdd7887e6e762c76";})();
+window.__agyRendererBundleId="e330a3d830094d1403beef8aba1eb8b9c401cbdfda38b295e6f9d3495a5228c4";})();

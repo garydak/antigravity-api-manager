@@ -14,7 +14,9 @@ import {
     setSelectionState,
     setModelReasoningEffort,
     recordTestResult,
-    maskApiKey
+    maskApiKey,
+    getConversationSelection,
+    setConversationSelection
 } from './model-store.mjs';
 import { importProviderModels, getProvider, updateProvider } from './model-store.mjs';
 import { testModelConnection, chatWithModel, streamChatWithModel, discoverRelayModels } from './model-client.mjs';
@@ -241,7 +243,20 @@ export async function handleModelApiRequest(req, res, pathname, searchParams = n
         }
         if (pathname === '/api/models/reasoning' && req.method === 'POST') {
             const body = await readJsonBody(req);
-            sendJson(res, 200, { ok: true, state: setModelReasoningEffort(body.modelId, body.effort, body.activate === true) });
+            const cid = resolveConversationId(body.conversationId || 'auto');
+            const rState = setModelReasoningEffort(body.modelId, body.effort, body.activate === true);
+            if (body.activate === true) {
+                setConversationSelection(cid, { activeMode: 'custom', activeModelId: body.modelId });
+            }
+            const sessionSel = getConversationSelection(cid);
+            sendJson(res, 200, {
+                ok: true,
+                state: {
+                    ...rState,
+                    activeMode: sessionSel.activeMode,
+                    activeModelId: sessionSel.activeModelId
+                }
+            });
             return true;
         }
         if (pathname === '/api/models/bridge/truncate' && req.method === 'POST') {
@@ -258,10 +273,14 @@ export async function handleModelApiRequest(req, res, pathname, searchParams = n
         if (pathname === '/api/models' && req.method === 'GET') {
             const cid = resolveConversationId(searchParams.get('conversationId') || 'auto');
             const historyInfo = buildUnifiedConversationHistory(cid, { maxTurns: 6 });
+            const sessionSel = getConversationSelection(cid);
             sendJson(res, 200, {
                 ok: true,
                 showUsage:suiteSettings.readSettings().showUsage,
                 ...getSanitizedState(),
+                activeMode: sessionSel.activeMode,
+                activeModelId: sessionSel.activeModelId,
+                chatRelayMode: sessionSel.chatRelayMode,
                 localSessions: listLocalCustomSessions(),
                 bridge: {
                     conversationId: historyInfo.conversationId,
@@ -321,11 +340,20 @@ export async function handleModelApiRequest(req, res, pathname, searchParams = n
         // 4. 切换当前对话使用的模型（支持 Official 官方模型 <-> Custom 中转模型）
         if (pathname === '/api/models/select' && req.method === 'POST') {
             const body = await readJsonBody(req);
-            setSelectionState({ activeMode: body.mode, activeModelId: body.modelId,
-                chatRelayMode: body.chatRelayMode });
+            const cid = resolveConversationId(body.conversationId || searchParams.get('conversationId') || 'auto');
+            const sessionSel = setConversationSelection(cid, {
+                activeMode: body.mode,
+                activeModelId: body.modelId,
+                chatRelayMode: body.chatRelayMode
+            });
             sendJson(res, 200, {
                 ok: true,
-                state: getSanitizedState()
+                state: {
+                    ...getSanitizedState(),
+                    activeMode: sessionSel.activeMode,
+                    activeModelId: sessionSel.activeModelId,
+                    chatRelayMode: sessionSel.chatRelayMode
+                }
             });
             return true;
         }
@@ -389,7 +417,7 @@ export async function handleModelApiRequest(req, res, pathname, searchParams = n
 
             const targetModel = body.modelId
                 ? getModelById(body.modelId)
-                : getActiveCustomModel();
+                : getActiveCustomModel(cid);
 
             if (!targetModel) {
                 sendJson(res, 404, {
@@ -637,7 +665,7 @@ export async function handleModelApiRequest(req, res, pathname, searchParams = n
 
             const targetModel = body.modelId
                 ? getModelById(body.modelId)
-                : getActiveCustomModel();
+                : getActiveCustomModel(cid);
 
             if (!targetModel) {
                 sendSse('error', { ok: false, error: '未找到可用的自定义中转模型，请先添加并选择一个模型' });

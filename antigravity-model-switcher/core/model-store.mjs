@@ -10,6 +10,7 @@ export const DATA_DIR = process.env.AGY_MODEL_DATA_DIR
   ? path.resolve(process.env.AGY_MODEL_DATA_DIR) : path.join(__dirname, "..", "data");
 export const MODELS_FILE = path.join(DATA_DIR, "models.json");
 export const BRIDGES_DIR = path.join(DATA_DIR, "bridges");
+export const SESSION_SELECTIONS_FILE = path.join(DATA_DIR, "session-selections.json");
 
 function ensureDirs() {
   fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -142,7 +143,107 @@ export function getModelById(id) {
   return store.models.find((m) => m.id === id) || null;
 }
 
-export function getActiveCustomModel() {
+export function loadSessionSelections() {
+  ensureDirs();
+  if (!fs.existsSync(SESSION_SELECTIONS_FILE)) {
+    return {};
+  }
+  try {
+    const raw = fs.readFileSync(SESSION_SELECTIONS_FILE, "utf8");
+    return JSON.parse(raw) || {};
+  } catch {
+    return {};
+  }
+}
+
+export function saveSessionSelections(selections) {
+  ensureDirs();
+  fs.writeFileSync(SESSION_SELECTIONS_FILE, JSON.stringify(selections, null, 2), "utf8");
+}
+
+export function getConversationSelection(conversationId) {
+  const store = loadModelStore();
+  const defaultSelection = {
+    activeMode: "official",
+    activeModelId: store.activeModelId || store.models[0]?.id || null,
+    chatRelayMode: store.chatRelayMode || "direct"
+  };
+
+  if (!conversationId || conversationId === 'auto') {
+    return {
+      activeMode: store.activeMode || "official",
+      activeModelId: store.activeModelId || store.models[0]?.id || null,
+      chatRelayMode: store.chatRelayMode || "direct"
+    };
+  }
+
+  const selections = loadSessionSelections();
+  const sessionCfg = selections[conversationId];
+  if (sessionCfg) {
+    const modelExists = !sessionCfg.activeModelId || store.models.some(m => m.id === sessionCfg.activeModelId);
+    if (modelExists) {
+      return {
+        activeMode: sessionCfg.activeMode || "official",
+        activeModelId: sessionCfg.activeModelId || store.activeModelId || store.models[0]?.id || null,
+        chatRelayMode: sessionCfg.chatRelayMode || store.chatRelayMode || "direct"
+      };
+    }
+  }
+
+  return defaultSelection;
+}
+
+export function setConversationSelection(conversationId, { activeMode, activeModelId, chatRelayMode }) {
+  const store = loadModelStore();
+  if (activeMode !== undefined && !["official", "custom"].includes(activeMode)) throw new Error("无效的模型切换模式");
+  if (chatRelayMode !== undefined && !["direct", "mcp", "native"].includes(chatRelayMode)) throw new Error("无效的中转模式");
+
+  let resolvedModelId = activeModelId;
+  if (resolvedModelId) {
+    const target = store.models.find(m => m.id === resolvedModelId || m.name === resolvedModelId || m.modelId === resolvedModelId);
+    if (target) resolvedModelId = target.id;
+  }
+
+  if (conversationId && conversationId !== 'auto') {
+    const selections = loadSessionSelections();
+    const current = selections[conversationId] || {};
+    selections[conversationId] = {
+      activeMode: activeMode !== undefined ? activeMode : (current.activeMode || "official"),
+      activeModelId: resolvedModelId !== undefined ? resolvedModelId : (current.activeModelId || store.activeModelId),
+      chatRelayMode: chatRelayMode !== undefined ? chatRelayMode : (current.chatRelayMode || store.chatRelayMode),
+      updatedAt: Date.now()
+    };
+    saveSessionSelections(selections);
+  }
+
+  // 同步更新全局默认候选（最近使用的中转模型）
+  if (resolvedModelId) {
+    store.activeModelId = resolvedModelId;
+  }
+  if (activeMode) {
+    store.activeMode = activeMode;
+  }
+  if (chatRelayMode) {
+    store.chatRelayMode = chatRelayMode;
+  }
+  saveModelStore(store);
+
+  return getConversationSelection(conversationId);
+}
+
+export function getActiveCustomModel(conversationId = null) {
+  if (conversationId) {
+    const sel = getConversationSelection(conversationId);
+    if (sel.activeModelId) {
+      const model = getModelById(sel.activeModelId);
+      if (model) return model;
+    }
+  }
+  return resolveModelByIdOrName(null);
+}
+
+// 旧版兼容调用
+function _legacyGetActiveCustomModel() {
   return resolveModelByIdOrName(null);
 }
 
