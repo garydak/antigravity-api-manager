@@ -1,6 +1,6 @@
 {
   "name": "antigravity-api-manager",
-  "version": "2.3.0",
+  "version": "2.4.0",
   "description": "Antigravity API Manager: 第三方 API / 中转模型高效调度与多账号管理套件 (支持 Antigravity 2.26+)",
   "main": "suite/launch.cjs",
   "scripts": {

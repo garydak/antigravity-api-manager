@@ -1341,6 +1341,88 @@
                 text-overflow: ellipsis;
                 white-space: nowrap;
             }
+            
+            .agy-ms-approval-card {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                padding: 10px 14px;
+                border-radius: 10px;
+                background: rgba(30, 41, 59, 0.45);
+                border: 1px solid rgba(59, 130, 246, 0.35);
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+                font-size: 12.5px;
+                line-height: 1.45;
+                margin: 6px 0;
+            }
+            .agy-ms-approval-header {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                font-weight: 600;
+                color: #3b82f6;
+            }
+            .agy-ms-approval-icon {
+                font-size: 15px;
+            }
+            .agy-ms-approval-desc {
+                font-size: 12px;
+                opacity: 0.9;
+            }
+            .agy-ms-approval-url {
+                font-size: 11.5px;
+                font-family: Consolas, Monaco, monospace;
+                background: rgba(128, 128, 128, 0.12);
+                padding: 4px 8px;
+                border-radius: 6px;
+                word-break: break-all;
+                margin: 3px 0;
+            }
+            .agy-ms-approval-url a {
+                color: #3b82f6;
+                text-decoration: underline;
+            }
+            .agy-ms-approval-remember {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                font-size: 11.5px;
+                opacity: 0.78;
+                cursor: pointer;
+                user-select: none;
+                margin-top: 2px;
+            }
+            .agy-ms-approval-actions {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                margin-top: 4px;
+            }
+            .agy-ms-approval-btn {
+                padding: 4px 14px;
+                border-radius: 6px;
+                font-size: 12px;
+                font-weight: 500;
+                cursor: pointer;
+                transition: all 0.15s ease;
+                border: none;
+            }
+            .agy-ms-approval-allow {
+                background: #059669;
+                color: #ffffff;
+            }
+            .agy-ms-approval-allow:hover {
+                background: #047857;
+            }
+            .agy-ms-approval-deny {
+                background: transparent;
+                border: 1px solid rgba(220, 38, 38, 0.4);
+                color: #ef4444;
+            }
+            .agy-ms-approval-deny:hover {
+                background: rgba(220, 38, 38, 0.1);
+            }
+
             .agy-ms-tool-card-right {
                 font-size: 11px;
                 opacity: 0.75;
@@ -2521,6 +2603,81 @@
     /**
      * 在回复区创建或更新 Agent 工具调用步骤卡片（如：📖 读取文件、✏️ 编辑文件、💻 执行命令）
      */
+    
+    /**
+     * 在聊天卡片区渲染敏感工具（如 Google Chrome 浏览器控制）的用户确认授权卡片
+     */
+    function renderToolApprovalCard(toolStepsEl, approvalData) {
+        if (!toolStepsEl || !approvalData || !approvalData.approvalId) return;
+        toolStepsEl.style.display = 'flex';
+
+        let card = toolStepsEl.querySelector(`[data-approval-id="${approvalData.approvalId}"]`);
+        if (!card) {
+            card = document.createElement('div');
+            card.className = 'agy-ms-approval-card';
+            card.setAttribute('data-approval-id', approvalData.approvalId);
+            card.setAttribute(SKIP_I18N_ATTR, 'true');
+            toolStepsEl.appendChild(card);
+        }
+
+        const title = approvalData.title || 'Google Chrome 浏览器控制授权';
+        const desc = approvalData.description || '中转模型请求连接本地 Chrome 浏览器';
+        const targetUrl = approvalData.url ? `<div class="agy-ms-approval-url">目标页面：<a href="${escapeHtml(approvalData.url)}" target="_blank">${escapeHtml(approvalData.url)}</a></div>` : '';
+
+        card.innerHTML = `
+            <div class="agy-ms-approval-header">
+                <span class="agy-ms-approval-icon">🌐</span>
+                <span class="agy-ms-approval-title">${escapeHtml(title)}</span>
+            </div>
+            <div class="agy-ms-approval-body">
+                <div class="agy-ms-approval-desc">${escapeHtml(desc)}</div>
+                ${targetUrl}
+                <label class="agy-ms-approval-remember">
+                    <input type="checkbox" class="agy-ms-approval-check" />
+                    <span>记住本次会话 (后续自动允许 Chrome 浏览器操作)</span>
+                </label>
+            </div>
+            <div class="agy-ms-approval-actions">
+                <button class="agy-ms-approval-btn agy-ms-approval-allow">✓ 允许连接</button>
+                <button class="agy-ms-approval-btn agy-ms-approval-deny">✕ 拒绝</button>
+            </div>
+        `;
+
+        const allowBtn = card.querySelector('.agy-ms-approval-allow');
+        const denyBtn = card.querySelector('.agy-ms-approval-deny');
+        const rememberCheck = card.querySelector('.agy-ms-approval-check');
+
+        const handleDecision = async (approved) => {
+            allowBtn.disabled = true;
+            denyBtn.disabled = true;
+            rememberCheck.disabled = true;
+            const rememberSession = Boolean(rememberCheck.checked);
+
+            card.querySelector('.agy-ms-approval-actions').innerHTML = `
+                <span style="font-size:12px;color:${approved ? '#059669' : '#dc2626'};font-weight:500;">
+                    ${approved ? '✓ 已允许授权，正在连接并启动 Chrome...' : '✕ 已拒绝授权'}
+                </span>
+            `;
+
+            try {
+                await fetch('http://127.0.0.1:19823/api/models/tool-approval', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        approvalId: approvalData.approvalId,
+                        approved,
+                        rememberSession
+                    })
+                });
+            } catch (err) {
+                console.error('[ToolApproval] Failed to post decision:', err);
+            }
+        };
+
+        allowBtn.addEventListener('click', () => handleDecision(true));
+        denyBtn.addEventListener('click', () => handleDecision(false));
+    }
+
     function upsertToolStepCard(toolStepsEl, step, isRunning = false) {
         if (!toolStepsEl || !step || !step.id) return;
         toolStepsEl.style.display = 'flex';
@@ -2890,7 +3047,9 @@
                 body: JSON.stringify({
                     modelId: activeModel.id,
                     reasoningEffort: activeModel.reasoningEffort || 'default',
-                    prompt: cleanPrompt,
+                    prompt: (/^\/browser\b/i.test(cleanPrompt.trim()))
+                        ? `[系统指令：用户发起了 /browser 浏览器自动化控制请求] 请立即使用 browser 工具控制本地 Google Chrome 浏览器执行以下任务：${cleanPrompt.trim().replace(/^\/browser\s*/i, '').trim() || '打开 Chrome 浏览器主页'}`
+                        : cleanPrompt,
                     images,
                     conversationId: cid,
                     includeHistory: true,
@@ -2930,6 +3089,14 @@
                     if (data.message) {
                         currentPhaseMsg = data.message;
                         updateLiveStatusDisplay();
+                    }
+                } else if (evtName === 'tool_approval_request') {
+                    progress.phase = 'tool';
+                    currentPhaseMsg = '等待授权控制 Google Chrome...';
+                    updateLiveStatusDisplay();
+                    if (uiTurn && uiTurn.toolStepsEl) {
+                        renderToolApprovalCard(uiTurn.toolStepsEl, data);
+                        uiTurn.wrapper.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                     }
                 } else if (evtName === 'tool_start') {
                     progress.phase = 'tool';

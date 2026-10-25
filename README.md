@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/%E7%89%88%E6%9C%AC-v2.3.0-blue?style=flat-square" alt="Version v2.3.0" />
+  <img src="https://img.shields.io/badge/%E7%89%88%E6%9C%AC-v2.4.0-blue?style=flat-square" alt="Version v2.4.0" />
   <img src="https://img.shields.io/badge/%E9%80%82%E7%94%A8%E7%89%88%E6%9C%AC-Antigravity%20v2.22%20~%20v2.26%2B-D97757?style=flat-square" alt="适用版本" />
   <img src="https://img.shields.io/badge/%E6%94%AF%E6%8C%81%E7%B3%BB%E7%BB%9F-macOS%20%7C%20Windows%2010%2F11-0078D6?style=flat-square" alt="平台" />
   <img src="https://img.shields.io/badge/%E6%B1%89%E5%8C%96%E8%AF%8D%E5%BA%93-2100%2B%20%E8%AF%8D%E6%9D%A1%E6%B7%B1%E5%BA%A6%E6%9C%AC%E5%9C%B0%E5%8C%96-2E7D47?style=flat-square" alt="汉化数据" />
@@ -16,14 +16,14 @@
 
 ---
 
-## 📦 最新版本下载 (Release v2.3.0)
+## 📦 最新版本下载 (Release v2.4.0)
 
 本项目已支持 **macOS（Apple Silicon M系列及 Intel 架构）** 与 **Windows** 双平台。您可以直接下载开箱即用的离线压缩包：
 
 | 操作系统 | 架构 / 环境要求 | 压缩包下载链接 | 安装方式 |
 | :--- | :--- | :--- | :--- |
-| 🍏 **macOS** | Apple Silicon (M1/M2/M3/M4) / Intel (Node.js ≥ 20) | [📥 **antigravity-api-manager-v2.3.0-mac.zip**](./releases/antigravity-api-manager-v2.3.0-mac.zip) | 解压后终端运行 `./install.sh` |
-| 🪟 **Windows** | Windows 10 / 11 64-bit (Node.js ≥ 20) | [📥 **antigravity-api-manager-v2.3.0-win.zip**](./releases/antigravity-api-manager-v2.3.0-win.zip) | 解压后双击运行 `双击一键安装.cmd` |
+| 🍏 **macOS** | Apple Silicon (M1/M2/M3/M4) / Intel (Node.js ≥ 20) | [📥 **antigravity-api-manager-v2.4.0-mac.zip**](./releases/antigravity-api-manager-v2.4.0-mac.zip) | 解压后终端运行 `./install.sh` |
+| 🪟 **Windows** | Windows 10 / 11 64-bit (Node.js ≥ 20) | [📥 **antigravity-api-manager-v2.4.0-win.zip**](./releases/antigravity-api-manager-v2.4.0-win.zip) | 解压后双击运行 `双击一键安装.cmd` |
 
 > [!TIP]
 > 也可以通过 GitHub Release 页面下载历史版本与最新归档：[Releases · garydak/antigravity-api-manager](https://github.com/garydak/antigravity-api-manager/releases)
@@ -32,9 +32,14 @@
 
 ## 🌟 核心功能特性
 
-### 1. 🛠️ 中转模型无损驱动工具链与智能联网
-无论使用 **DeepSeek-R1/V3**、**Claude 3.5/3.7 Sonnet** 还是 **GPT-4o/o3** 等第三方中转模型，均可驱动核心本地工具，绝非简陋的纯文本聊天：
-- 🌐 **智能联网与网页文档读取**：中转模型可自主抓取指定 URL、提取网页标题与正文文本并进行深度归纳总结（注：采用轻量无头提取，不弹出官方繁重的 Puppeteer 浏览器窗口；请使用自然语言触发，详见后文说明）。
+### 1. 🌐 中转模型直接控制真实 Google Chrome 浏览器 (方案 A 深度集成)
+新版实现第三方中转模型与本地真实桌面 **Google Chrome** 的无缝连接：
+- 🛡️ **操作前原生授权确认卡片**：中转模型每次请求连接浏览器时，聊天气泡会实时弹出权限确认模态卡片（支持点击 **「✓ 允许连接」**、**「✕ 拒绝」** 与 **「记住本次会话」**），保证桌面操作绝对受控安全。
+- ⚡ **Chrome DevTools Protocol (CDP) 驱动**：支持真实打开网页 (`open`)、点击按钮与链接 (`click`)、输入搜索内容与表单 (`type`)、平滑滚动 (`scroll`)、页面正文提取与网页实时截屏 (`screenshot`)。
+- 🪄 **无缝支持 `/browser` 快捷指令**：在输入框直接输入 `/browser https://...` 或 `/browser 请帮我搜索...`，中转模型能立即自动识别并调起浏览器控制流程！
+
+### 2. 🛠️ 中转模型全套本地 Agent 工具链
+无论使用 **DeepSeek-R1/V3**、**Claude 3.5/3.7 Sonnet** 还是 **GPT-4o/o3** 等第三方中转模型，均可驱动核心本地工具：
 - 💻 **终端命令行执行（`run_command`）**：在系统终端执行 PowerShell / Bash 命令、运行单元测试及自动化构建。
 - 📝 **代码编辑与 Diff 审查（`edit_file` / `write_file`）**：精准替换工程代码，并在 Antigravity 原生界面呈现代码 Diff 审查与一键撤销。
 - 🧩 **MCP（Model Context Protocol）扩展**：完全透传调用 Antigravity 已加载的各类 MCP Server 本地工具。
@@ -140,7 +145,7 @@
 ### 🍎 macOS 用户安装
 
 #### 方式 A：离线压缩包安装（推荐）
-1. 下载 [**antigravity-api-manager-v2.3.0-mac.zip**](./releases/antigravity-api-manager-v2.3.0-mac.zip) 并解压。
+1. 下载 [**antigravity-api-manager-v2.4.0-mac.zip**](./releases/antigravity-api-manager-v2.4.0-mac.zip) 并解压。
 2. 打开「终端（Terminal）」，进入解压后的文件夹目录：
    ```bash
    cd ~/Downloads/antigravity-api-manager
@@ -165,7 +170,7 @@ chmod +x install.sh
 ### 🪟 Windows 用户安装
 
 #### 方式 A：离线压缩包安装（推荐）
-1. 下载 [**antigravity-api-manager-v2.3.0-win.zip**](./releases/antigravity-api-manager-v2.3.0-win.zip) 并解压。
+1. 下载 [**antigravity-api-manager-v2.4.0-win.zip**](./releases/antigravity-api-manager-v2.4.0-win.zip) 并解压。
 2. 鼠标双击运行解压目录中的 **`双击一键安装.cmd`**（无需管理员权限）。
 3. 勾选需要启用的模块（汉化、多账号、API 中转），点击确定完成安装。
 4. 双击桌面的 **Antigravity** 快捷方式启动应用即可！
@@ -191,7 +196,7 @@ chmod +x install.sh
 
 ## 📝 版本更新日志 (Changelog)
 
-### v2.3.0 (2026-10-26)
+### v2.4.0 (2026-10-26)
 * 🚀 **全套原生工具链无损代理集成**：
   * 中转模型（OpenAI/Claude 协议）现已完美支持 Antigravity 原生全套工具，包括 `/browser` 浏览器自动化控制、终端命令执行、代码 Diff 精准替换以及 MCP 工具扩展；
   * 原生推理思考链支持：支持 DeepSeek-R1 等模型的思考过程以官方「💭 思考过程」原生折叠组件展现。

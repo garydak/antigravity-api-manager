@@ -42,6 +42,11 @@ import { createAgentTurnPolicy, compactAgentMessages, TOOL_RESULT_INSTRUCTION } 
 import { createUsageAccumulator } from './usage.mjs';
 import suiteSettings from '../../suite/settings.cjs';
 
+// 浏览器控制等敏感工具的待确认授权管理与会话白名单
+const pendingApprovals = new Map();
+const sessionApprovedTools = new Set();
+
+
 function createExchangeCheckpoint(cid, fields) {
     let exchange = appendCustomBridgeExchange(cid, { ...fields, completionStatus: 'incomplete' });
     let lastWrite = Date.now(), settled = false;
@@ -203,6 +208,25 @@ export async function handleModelApiRequest(req, res, pathname, searchParams = n
         lockedConversationId = cid;
     };
     try {
+        
+        // 处理敏感工具（如 Google Chrome 浏览器控制）的前端用户授权确认
+        if (pathname === '/api/models/tool-approval' && req.method === 'POST') {
+            const body = await readJsonBody(req);
+            const entry = pendingApprovals.get(body.approvalId);
+            if (entry) {
+                pendingApprovals.delete(body.approvalId);
+                entry.resolve({
+                    approved: Boolean(body.approved),
+                    rememberSession: Boolean(body.rememberSession),
+                    reason: body.reason || ''
+                });
+                sendJson(res, 200, { ok: true, message: '已接收授权决策' });
+            } else {
+                sendJson(res, 404, { ok: false, error: '未找到待处理的授权请求或已超时' });
+            }
+            return true;
+        }
+
         if (pathname === '/api/models/bridge/info' && req.method === 'GET') {
             const value = readBridgeState(searchParams.get('conversationId'));
             sendJson(res, 200, { ok: true, conversationId: value.conversationId, migratedTo: value.migratedTo || null, deletedAt: value.deletedAt || 0 });
@@ -816,6 +840,64 @@ export async function handleModelApiRequest(req, res, pathname, searchParams = n
                         args: call.args
                     });
                     checkpoint.update({ toolSteps: [...executedToolSteps, { id: stepId, name: call.name, title: desc.title, detail: desc.detail, args: call.args, running: true }] }, true);
+
+                    // 检查敏感工具（浏览器控制）是否需要用户弹窗授权
+                    const isBrowserTool = call.name === 'browser' || call.name === 'chrome_control';
+                    const approvalKey = `${cid}:${call.name}`;
+                    if (isBrowserTool && !sessionApprovedTools.has(approvalKey)) {
+                        const approvalId = `appr_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+                        const promptUrl = call.args.url || call.args.targetUrl || '';
+                        sendSse('tool_approval_request', {
+                            approvalId,
+                            stepId,
+                            toolName: call.name,
+                            action: call.args.action || 'open',
+                            url: promptUrl,
+                            title: 'Google Chrome 浏览器控制授权',
+                            description: promptUrl ? `中转模型请求连接 Chrome 浏览器访问: ${promptUrl}` : '中转模型请求连接并控制本地 Google Chrome 浏览器'
+                        });
+
+                        const userDecision = await new Promise((resolve) => {
+                            const timer = setTimeout(() => {
+                                pendingApprovals.delete(approvalId);
+                                resolve({ approved: false, reason: '授权确认超时 (120 秒)' });
+                            }, 120000);
+                            pendingApprovals.set(approvalId, {
+                                resolve: (dec) => {
+                                    clearTimeout(timer);
+                                    resolve(dec);
+                                }
+                            });
+                        });
+
+                        if (userDecision.rememberSession) {
+                            sessionApprovedTools.add(approvalKey);
+                        }
+
+                        if (!userDecision.approved) {
+                            const rejectMsg = userDecision.reason || '用户已拒绝连接 Google Chrome 浏览器';
+                            const stepRecord = {
+                                id: stepId,
+                                name: call.name,
+                                title: desc.title,
+                                detail: desc.detail,
+                                args: call.args,
+                                output: `[操作已取消] ${rejectMsg}`,
+                                ok: false,
+                                summary: '已拒绝授权'
+                            };
+                            executedToolSteps.push(stepRecord);
+                            checkpoint.update({ toolSteps: executedToolSteps }, true);
+                            sendSse('tool_end', stepRecord);
+                            resultBlocks.push(`<agy_tool_result name="${call.name}" ok="false">\n${rejectMsg}\n</agy_tool_result>`);
+                            continue;
+                        }
+
+                        sendSse('status', {
+                            phase: 'tool',
+                            message: '用户已允许授权，正在连接 Google Chrome 并执行操作...'
+                        });
+                    }
 
                     controller.signal.throwIfAborted();
                     const toolRes = await executeAgentTool(call.name, call.args, { signal: controller.signal });

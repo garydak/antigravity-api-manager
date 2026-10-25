@@ -18,6 +18,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { exec } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { executeChromeAction } from '../tools/chrome-cdp.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const MODEL_SWITCHER_ROOT = path.resolve(__dirname, '..').replace(/\\/g, '/');
@@ -520,7 +521,15 @@ export async function executeAgentTool(callOrName, maybeArgs, options = {}) {
             });
         }
 
-        if (name === 'browser' || name === 'fetch_web' || name === 'read_url') {
+        if (name === 'browser' || name === 'chrome_control' || name === 'fetch_web' || name === 'read_url') {
+            try {
+                // 优先通过 Chrome DevTools Protocol 控制真实桌面 Google Chrome
+                const chromeRes = await executeChromeAction(args);
+                return buildToolReturn(chromeRes);
+            } catch (chromeErr) {
+                // 若 Chrome CDP 连接未果，降级使用 Node 原生网络拉取
+                console.warn('[AgentTools] Chrome CDP action failed, fallback to fetch:', chromeErr.message);
+            }
             const rawUrl = String(args.url || args.targetUrl || args.link || args.href || '').trim();
             if (!rawUrl) {
                 return buildToolReturn({ ok: false, summary: '缺少 URL 参数', output: 'Missing required parameter: url' });
