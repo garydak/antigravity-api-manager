@@ -20,13 +20,19 @@
   const friendlyError=message=>/unauthorized|invalid_grant|invalid_client|HTTP 401/i.test(message)?text('账号授权已失效，请在「设置 → 账户」重新授权。','Account authorization expired. Reauthorize in Settings → Account.'):/timeout|timed out/i.test(message)?text('刷新超时，请稍后重试。','Refresh timed out. Try again shortly.'):text('操作失败，请稍后重试。','Operation failed. Please try again.');
   function closeToast(){clearTimeout(toastTimer);toastTimer=null;toast?.remove();toast=null;}
   function closeMenu(){popup?.remove();popup=null;document.getElementById('agy-account-badge')?.setAttribute('aria-expanded','false');}
+  const isCustomModel=()=>window.__AGY_MODEL_SWITCHER?.getState?.()?.activeMode==='custom';
   function selection(account,label=''){
-    const buckets=(account?.quotaSummary?.groups||[]).flatMap(group=>(group.buckets||[]).map(bucket=>({...bucket,group:group.displayName})));
-    const normal=value=>String(value).toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]/g,'').replace(/models?$|模型$/,'');
+    if(isCustomModel())return null;
+    if(!account?.quotaSummary?.groups)return null;
+    const buckets=account.quotaSummary.groups.flatMap(group=>(group.buckets||[]).map(bucket=>({...bucket,group:group.displayName})));
+    if(!buckets.length)return null;
+    const normal=value=>String(value||'').toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]/g,'').replace(/models?$|模型$/g,'');
     const target=normal(label);
+    if(!target)return null;
     const matches=value=>String(value||'').split(/\s+and\s+|[\/&,|]/i).some(part=>{const name=normal(part);return target&&name&&(target.includes(name)||name.includes(target));});
     const matched=buckets.filter(b=>matches(b.group)||matches(b.displayName));
-    const list=(matched.length?matched:buckets).filter(b=>Number.isFinite(b.remainingPercent));
+    if(!matched.length)return null;
+    const list=matched.filter(b=>Number.isFinite(b.remainingPercent));
     let selected=null;
     for(const bucket of list){
       const period=String(bucket.window||'').toLowerCase();
@@ -46,7 +52,7 @@
   async function switchTo(account){if(busy||generating())return;busy=true;render();try{await request('/api/switch',{email:account.email});closeMenu();closeToast();showError(text('账号已切换至 '+account.email+'，服务正在热重载并自动恢复中文与套件…','Switched to '+account.email+', reloading service…'));await refresh();}catch(error){showError(friendlyError(error.message));}finally{busy=false;render();}}
   function showError(message){closeToast();toast=document.createElement('div');toast.id='agy-account-toast';toast.setAttribute('role','status');toast.setAttribute('data-ag-localization-skip','true');const content=document.createElement('span');content.textContent=/unauthorized|invalid_grant|invalid_client|HTTP 401/i.test(message)?friendlyError(message):message;toast.appendChild(content);const close=document.createElement('button');close.type='button';close.textContent='×';close.setAttribute('aria-label',text('关闭提示','Dismiss notification'));close.onclick=closeToast;toast.appendChild(close);document.body.appendChild(toast);toastTimer=setTimeout(closeToast,6000);}
   function remind(force=false){
-    if(window.__agySuiteSettings?.quotaReminder===false||window.__AGY_MODEL_SWITCHER?.getState().activeMode==='custom')return;
+    if(window.__agySuiteSettings?.quotaReminder===false||isCustomModel())return;
     const current=accounts.find(a=>a.isCurrent),percent=percentage(current,label());
     if(!current||authIssues.has(current.email)||(!force&&(percent===null||percent>=10||stale(current))))return;
     const key=current.email+':'+label();if(Date.now()-(notices.get(key)||0)<1800000)return;
@@ -58,12 +64,15 @@
   function openMenu(button){
     if(disposed||window.__agySuiteSettings?.showQuota===false||!button.isConnected)return;closeMenu();popup=document.createElement('div');popup.id='agy-account-menu';popup.setAttribute('role','menu');popup.setAttribute('data-ag-localization-skip','true');button.setAttribute('aria-expanded','true');
     const bounds=button.getBoundingClientRect();popup.style.left=Math.max(8,Math.min(bounds.right-300,innerWidth-308))+'px';if(bounds.top>200)popup.style.bottom=Math.max(8,innerHeight-bounds.top+8)+'px';else popup.style.top=Math.min(innerHeight-200,bounds.bottom+8)+'px';
-    const heading=document.createElement('div');heading.className='quota-menu-title';heading.textContent=text('账号与剩余额度','Accounts · remaining quota');popup.appendChild(heading);
+    const heading=document.createElement('div');heading.className='quota-menu-title';
+    const activeLabel=label();
+    heading.textContent=text('账号与额度','Accounts & Quota')+(activeLabel?' · '+activeLabel:'');
+    popup.appendChild(heading);
     for(const account of accounts){const row=document.createElement('button');row.type='button';row.setAttribute('role','menuitem');row.dataset.current=String(!!account.isCurrent);
-      const quota=selection(account,label()),percent=quota?.percent??null,info=document.createElement('span');info.className='quota-account-info';const name=document.createElement('span');name.className='quota-account-name';name.textContent=(account.isCurrent?'✓ ':'')+(account.label||account.email);info.appendChild(name);
+      const quota=selection(account,activeLabel),percent=quota?.percent??null,info=document.createElement('span');info.className='quota-account-info';const name=document.createElement('span');name.className='quota-account-name';name.textContent=(account.isCurrent?'✓ ':'')+(account.label||account.email);info.appendChild(name);
       const meta=document.createElement('span');meta.className='quota-account-meta';meta.textContent=authIssues.has(account.email)?text('需重新授权 · 显示缓存额度','Reauthorize · cached quota'):stale(account)?text('缓存额度','Cached quota'):text('最新额度','Latest quota');info.appendChild(meta);
       if(percent!==null){const meter=document.createElement('span');meter.className='quota-meter';meter.dataset.low=String(percent<10);const fill=document.createElement('span');fill.style.width=percent+'%';meter.appendChild(fill);info.appendChild(meter);}
-      const value=document.createElement('span');value.className='quota-percent';value.textContent=quotaLabel(quota);row.append(info,value);row.disabled=account.isCurrent||busy||generating();row.onclick=()=>switchTo(account);popup.appendChild(row);}
+      const value=document.createElement('span');value.className='quota-percent';value.textContent=quota?quotaLabel(quota):isCustomModel()?text('中转','Relay'):account.quotaSummary?text('不限','Unlimited'):'—';row.append(info,value);row.disabled=account.isCurrent||busy||generating();row.onclick=()=>switchTo(account);popup.appendChild(row);}
     const refreshButton=document.createElement('button');refreshButton.type='button';refreshButton.setAttribute('role','menuitem');refreshButton.dataset.quotaRefresh='true';refreshButton.disabled=requesting;refreshButton.textContent='↻ '+text('刷新当前账号配额','Refresh current quota');refreshButton.onclick=async()=>{refreshButton.disabled=true;refreshButton.textContent=text('正在刷新…','Refreshing…');const menu=popup;lastQuotaFetch=0;await refresh({notify:true});if(!disposed&&popup===menu&&button.isConnected)openMenu(button);};popup.appendChild(refreshButton);
     popup.addEventListener('keydown',event=>{const rows=[...popup.querySelectorAll('button:not(:disabled)')];let index=rows.indexOf(document.activeElement);if(event.key==='Escape'){closeMenu();button.focus();}else if(['ArrowDown','ArrowUp'].includes(event.key)){event.preventDefault();rows[(index+(event.key==='ArrowDown'?1:-1)+rows.length)%rows.length]?.focus();}});
     document.body.appendChild(popup);popup.querySelector('button:not(:disabled)')?.focus();
@@ -73,9 +82,16 @@
     let host=document.getElementById('agy-account-capsule');if(!host){host=document.createElement('div');host.id='agy-account-capsule';}if(host.parentElement!==composer)composer.appendChild(host);
     let button=document.getElementById('agy-account-badge');if(!button){button=document.createElement('button');button.id='agy-account-badge';button.type='button';button.setAttribute('aria-haspopup','menu');button.setAttribute('aria-expanded','false');button.setAttribute('data-ag-localization-skip','true');button.innerHTML='<span class="quota-dot" aria-hidden="true"></span><span class="quota-label"></span><span class="quota-chevron" aria-hidden="true">⌄</span>';button.onclick=()=>{if(popup)closeMenu();else openMenu(button);};}
     if(button.parentElement!==host)host.appendChild(button);
-    const current=accounts.find(a=>a.isCurrent),quota=selection(current,label()),percent=quota?.percent??null;
-    const title=(current?.label||current?.email||text('账号','Account'))+' · '+(quota?quotaLabel(quota):text('配额未知','quota unknown'))+(current&&(stale(current)||authIssues.has(current.email))?text('（缓存）',' (cached)'):'');
-    const caption=button.querySelector('.quota-label');if(caption.textContent!==title)caption.textContent=title;button.dataset.low=String(percent!==null&&percent<10);button.disabled=busy;button.title=text('点击切换账号；显示当前模型周与 5h 额度中剩余更低的一项，相同时显示周额度；无法匹配模型时显示最低已知额度。','Switch accounts; shows the lower weekly or 5h quota for this model, weekly on ties. Unknown models use the lowest known quota.');
+    const current=accounts.find(a=>a.isCurrent),currentLabel=label(),quota=selection(current,currentLabel),percent=quota?.percent??null;
+    const accountName=current?.label||current?.email||text('账号','Account');
+    const quotaSuffix=quota?' · '+quotaLabel(quota):'';
+    const cacheSuffix=(current&&(stale(current)||authIssues.has(current.email)))?text('（缓存）',' (cached)'):'';
+    const title=accountName+quotaSuffix+cacheSuffix;
+    const caption=button.querySelector('.quota-label');if(caption.textContent!==title)caption.textContent=title;
+    button.dataset.low=String((percent!==null&&percent<10)||authIssues.has(current?.email));button.disabled=busy;
+    const modelTip=currentLabel?text('当前模型：','Current model: ')+currentLabel+'\n':'';
+    const quotaTip=quota?text('剩余额度：','Remaining quota: ')+quotaLabel(quota):isCustomModel()?text('当前使用自定义中转模型','Using custom relay model'):text('当前模型无额度限制','No quota limit for this model');
+    button.title=modelTip+quotaTip+'\n'+text('点击切换账号','Click to switch account');
   }
   async function refresh({notify=false}={}){if(disposed)return;if(requesting){refreshAgain=true;return;}requesting=true;try{
     let data=await request('/api/accounts');accounts=data.accounts||[];
