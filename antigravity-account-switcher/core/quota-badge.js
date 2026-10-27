@@ -5,7 +5,7 @@
   const text=(cn,en)=>window.__agySuiteSettings?.i18n===false?en:cn;
   const style=document.createElement('style');style.id='agy-account-capsule-style';style.textContent=`
     #agy-account-capsule{display:flex;align-items:center;justify-content:flex-end;align-self:flex-end;flex:0 0 auto;margin:4px 12px 8px;max-width:100%}
-    #agy-account-badge{display:inline-flex;align-items:center;gap:7px;flex:0 0 auto;width:auto!important;max-width:240px;border:1px solid var(--border,#8883);border-radius:999px;padding:5px 10px;margin:0;background:transparent;color:inherit;font:12px system-ui;cursor:pointer;transition:background .15s,border-color .15s}
+    #agy-account-badge{display:inline-flex;align-items:center;gap:7px;flex:0 0 auto;width:auto!important;max-width:340px;border:1px solid var(--border,#8883);border-radius:999px;padding:5px 11px;margin:0;background:transparent;color:inherit;font:12px system-ui;cursor:pointer;transition:background .15s,border-color .15s}
     #agy-account-badge:hover,#agy-account-badge:focus-visible{background:#8882;border-color:#8885;outline:none}
     #agy-account-badge .quota-dot{width:6px;height:6px;border-radius:50%;background:#5c8b67;flex-shrink:0}#agy-account-badge[data-low=true] .quota-dot{background:#c57d46}
     #agy-account-badge .quota-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#agy-account-badge .quota-chevron{opacity:.55;font-size:11px}
@@ -21,44 +21,93 @@
   function closeToast(){clearTimeout(toastTimer);toastTimer=null;toast?.remove();toast=null;}
   function closeMenu(){popup?.remove();popup=null;document.getElementById('agy-account-badge')?.setAttribute('aria-expanded','false');}
   const isCustomModel=()=>window.__AGY_MODEL_SWITCHER?.getState?.()?.activeMode==='custom';
-  function selection(account,label=''){
-    if(isCustomModel())return null;
-    if(!account?.quotaSummary?.groups)return null;
-    const buckets=account.quotaSummary.groups.flatMap(group=>(group.buckets||[]).map(bucket=>({...bucket,group:group.displayName})));
-    if(!buckets.length)return null;
-    const normal=value=>String(value||'').toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]/g,'').replace(/models?$|模型$/g,'');
-    const target=normal(label);
-    if(!target)return null;
-    const matches=value=>String(value||'').split(/\s+and\s+|[\/&,|]/i).some(part=>{const name=normal(part);return target&&name&&(target.includes(name)||name.includes(target));});
-    const matched=buckets.filter(b=>matches(b.group)||matches(b.displayName));
-    if(!matched.length)return null;
-    const list=matched.filter(b=>Number.isFinite(b.remainingPercent));
-    let selected=null;
-    for(const bucket of list){
-      const period=String(bucket.window||'').toLowerCase();
-      const window=period==='5h'?'5h':/^(week|weekly)$/.test(period)?'weekly':null;
-      const percent=Math.max(0,Math.min(100,bucket.remainingPercent));
-      if(!selected||percent<selected.percent||(percent===selected.percent&&window==='weekly'&&selected.window!=='weekly'))selected={percent,window};
-    }
-    return selected;
+  function getCustomProviderName(){
+    const state=window.__AGY_MODEL_SWITCHER?.getState?.();
+    if(state?.activeMode!=='custom')return null;
+    const activeModel=(state.models||[]).find(m=>m.id===state.activeModelId);
+    const provider=(state.providers||[]).find(p=>p.id===activeModel?.providerId);
+    return provider?.name||provider?.baseUrl?.replace(/^https?:\/\//i,'').replace(/\/.*$/,'')||text('中转','Relay');
   }
-  const percentage=(account,label='')=>selection(account,label)?.percent??null;
-  const periodLabel=quota=>quota?.window==='5h'?'5h':quota?.window==='weekly'?text('周','week'):'';
-  const quotaLabel=quota=>quota?[periodLabel(quota),quota.percent+'%'].filter(Boolean).join(' '):'—';
+  let nativeQuotaGroups=null,lastNativeQuotaFetch=0;
+  async function fetchNativeQuotaSummary(){
+    if(Date.now()-lastNativeQuotaFetch<30000&&nativeQuotaGroups)return nativeQuotaGroups;
+    try{
+      const ctx=window.__AGY_MODEL_SWITCHER?.nativeContext?.();
+      if(ctx?.service?.retrieveUserQuotaSummary){
+        const raw=await ctx.service.retrieveUserQuotaSummary({});
+        const groups=raw?.response?.groups;
+        if(Array.isArray(groups)&&groups.length){
+          nativeQuotaGroups=groups.map(g=>({
+            displayName:g.displayName||'',
+            description:g.description||'',
+            buckets:(g.buckets||[]).map(b=>({
+              bucketId:b.bucketId||'',
+              displayName:b.displayName||'',
+              window:b.window||'',
+              remainingPercent:typeof b.remaining?.value==='number'?Math.round(b.remaining.value*100):Number.isFinite(b.remainingPercent)?b.remainingPercent:null
+            }))
+          }));
+          lastNativeQuotaFetch=Date.now();
+          return nativeQuotaGroups;
+        }
+      }
+    }catch(_){}
+    return null;
+  }
+  function matchGroup(groups,modelLabel){
+    if(!Array.isArray(groups)||!groups.length)return null;
+    const normal=String(modelLabel||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+    if(!normal)return null;
+    if(normal.includes('argon'))return groups.find(g=>(g.displayName||'').toLowerCase().includes('argon'))||null;
+    if(normal.includes('claude')||normal.includes('gpt'))return groups.find(g=>{const name=(g.displayName||'').toLowerCase();return name.includes('claude')||name.includes('gpt');})||null;
+    if(normal.includes('gemini'))return groups.find(g=>{const name=(g.displayName||'').toLowerCase();return name.includes('gemini')&&!name.includes('argon');})||null;
+    return null;
+  }
+  function formatModelQuota(group){
+    if(!group?.buckets?.length)return null;
+    let p5h=null,pWeek=null;
+    for(const b of group.buckets){
+      if(!Number.isFinite(b.remainingPercent))continue;
+      const percent=Math.max(0,Math.min(100,b.remainingPercent));
+      const period=String(b.window||'').toLowerCase();
+      if(period==='5h')p5h=percent;
+      else if(/^(week|weekly)$/.test(period))pWeek=percent;
+    }
+    if(p5h===null&&pWeek===null)return null;
+    const parts=[];
+    if(p5h!==null)parts.push('5h '+p5h+'%');
+    if(pWeek!==null)parts.push(text('周 ','W ')+pWeek+'%');
+    const valid=[p5h,pWeek].filter(n=>n!==null);
+    return {
+      text:parts.join(' / '),
+      p5h,
+      pWeek,
+      lowest:valid.length?Math.min(...valid):null,
+      isLow:(p5h!==null&&p5h<10)||(pWeek!==null&&pWeek<10)
+    };
+  }
+  function getAccountQuota(account,modelLabel){
+    if(isCustomModel())return null;
+    const groups=(account?.isCurrent&&nativeQuotaGroups)||account?.quotaSummary?.groups||[];
+    const group=matchGroup(groups,modelLabel);
+    return formatModelQuota(group);
+  }
+  const selection=(account,label='')=>getAccountQuota(account,label);
+  const percentage=(account,label='')=>getAccountQuota(account,label)?.lowest??null;
   const label=()=>{const button=document.querySelector('[data-testid="model-selector-trigger"]');return button?.querySelector('.agy-ms-trigger-custom-label')?.textContent||button?.innerText||button?.textContent||'';};
   const generating=()=>!!window.__AGY_MODEL_SWITCHER?.getState().isSendingCustomChat||!!document.querySelector('button[data-tooltip-id="input-send-button-cancel-tooltip"]');
   const stale=account=>!Number.isFinite(Date.parse(account?.quotaSummary?.updatedAt))||Date.now()-Date.parse(account.quotaSummary.updatedAt)>600000;
   async function request(endpoint,body){const response=await fetch(API+endpoint,{method:body?'POST':'GET',headers:{'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(30000)});const data=await response.json();if(!response.ok||!data.ok)throw Error(data.error||'Account service unavailable');return data;}
-  async function switchTo(account){if(busy||generating())return;busy=true;render();try{await request('/api/switch',{email:account.email});closeMenu();closeToast();showError(text('账号已切换至 '+account.email+'，服务正在热重载并自动恢复中文与套件…','Switched to '+account.email+', reloading service…'));await refresh();}catch(error){showError(friendlyError(error.message));}finally{busy=false;render();}}
+  async function switchTo(account){if(busy||generating())return;busy=true;render();try{await request('/api/switch',{email:account.email});closeMenu();closeToast();showError(text('账号已切换至 '+account.email+'，服务正在热重载并自动恢复中文与套件…','Switched to '+account.email+', reloading service…'));nativeQuotaGroups=null;lastNativeQuotaFetch=0;await refresh();}catch(error){showError(friendlyError(error.message));}finally{busy=false;render();}}
   function showError(message){closeToast();toast=document.createElement('div');toast.id='agy-account-toast';toast.setAttribute('role','status');toast.setAttribute('data-ag-localization-skip','true');const content=document.createElement('span');content.textContent=/unauthorized|invalid_grant|invalid_client|HTTP 401/i.test(message)?friendlyError(message):message;toast.appendChild(content);const close=document.createElement('button');close.type='button';close.textContent='×';close.setAttribute('aria-label',text('关闭提示','Dismiss notification'));close.onclick=closeToast;toast.appendChild(close);document.body.appendChild(toast);toastTimer=setTimeout(closeToast,6000);}
   function remind(force=false){
     if(window.__agySuiteSettings?.quotaReminder===false||isCustomModel())return;
-    const current=accounts.find(a=>a.isCurrent),percent=percentage(current,label());
+    const current=accounts.find(a=>a.isCurrent),quota=getAccountQuota(current,label()),percent=quota?.lowest??null;
     if(!current||authIssues.has(current.email)||(!force&&(percent===null||percent>=10||stale(current))))return;
     const key=current.email+':'+label();if(Date.now()-(notices.get(key)||0)<1800000)return;
     notices.set(key,Date.now());
     const backup=accounts.filter(a=>!a.isCurrent&&!stale(a)&&percentage(a,label())!==null&&percentage(a,label())>(percent??-1)).sort((a,b)=>percentage(b,label())-percentage(a,label()))[0];
-    showError(text('当前账号配额即将用尽','Current account quota is low')+(backup?' · '+(backup.label||backup.email)+' '+percentage(backup,label())+'%':''));
+    showError(text('当前账号配额即将用尽','Current account quota is low')+(backup?' · '+(backup.label||backup.email)+' '+(getAccountQuota(backup,label())?.text||percentage(backup,label())+'%'):''));
     if(backup){const button=document.createElement('button');button.textContent=text('切换至备用账号','Switch account');button.disabled=generating();button.onclick=()=>switchTo(backup);toast.appendChild(button);}
   }
   function openMenu(button){
@@ -66,14 +115,21 @@
     const bounds=button.getBoundingClientRect();popup.style.left=Math.max(8,Math.min(bounds.right-300,innerWidth-308))+'px';if(bounds.top>200)popup.style.bottom=Math.max(8,innerHeight-bounds.top+8)+'px';else popup.style.top=Math.min(innerHeight-200,bounds.bottom+8)+'px';
     const heading=document.createElement('div');heading.className='quota-menu-title';
     const activeLabel=label();
+    const isCustom=isCustomModel();
+    const customProvider=isCustom?getCustomProviderName():null;
     heading.textContent=text('账号与额度','Accounts & Quota')+(activeLabel?' · '+activeLabel:'');
     popup.appendChild(heading);
-    for(const account of accounts){const row=document.createElement('button');row.type='button';row.setAttribute('role','menuitem');row.dataset.current=String(!!account.isCurrent);
-      const quota=selection(account,activeLabel),percent=quota?.percent??null,info=document.createElement('span');info.className='quota-account-info';const name=document.createElement('span');name.className='quota-account-name';name.textContent=(account.isCurrent?'✓ ':'')+(account.label||account.email);info.appendChild(name);
+    for(const account of accounts){
+      const row=document.createElement('button');row.type='button';row.setAttribute('role','menuitem');row.dataset.current=String(!!account.isCurrent);
+      const quota=isCustom?null:getAccountQuota(account,activeLabel);
+      const percent=quota?.lowest??null;
+      const meterPercent=quota?.p5h??quota?.pWeek??null;
+      const info=document.createElement('span');info.className='quota-account-info';const name=document.createElement('span');name.className='quota-account-name';name.textContent=(account.isCurrent?'✓ ':'')+(account.label||account.email);info.appendChild(name);
       const meta=document.createElement('span');meta.className='quota-account-meta';meta.textContent=authIssues.has(account.email)?text('需重新授权 · 显示缓存额度','Reauthorize · cached quota'):stale(account)?text('缓存额度','Cached quota'):text('最新额度','Latest quota');info.appendChild(meta);
-      if(percent!==null){const meter=document.createElement('span');meter.className='quota-meter';meter.dataset.low=String(percent<10);const fill=document.createElement('span');fill.style.width=percent+'%';meter.appendChild(fill);info.appendChild(meter);}
-      const value=document.createElement('span');value.className='quota-percent';value.textContent=quota?quotaLabel(quota):isCustomModel()?text('中转','Relay'):account.quotaSummary?text('不限','Unlimited'):'—';row.append(info,value);row.disabled=account.isCurrent||busy||generating();row.onclick=()=>switchTo(account);popup.appendChild(row);}
-    const refreshButton=document.createElement('button');refreshButton.type='button';refreshButton.setAttribute('role','menuitem');refreshButton.dataset.quotaRefresh='true';refreshButton.disabled=requesting;refreshButton.textContent='↻ '+text('刷新当前账号配额','Refresh current quota');refreshButton.onclick=async()=>{refreshButton.disabled=true;refreshButton.textContent=text('正在刷新…','Refreshing…');const menu=popup;lastQuotaFetch=0;await refresh({notify:true});if(!disposed&&popup===menu&&button.isConnected)openMenu(button);};popup.appendChild(refreshButton);
+      if(meterPercent!==null){const meter=document.createElement('span');meter.className='quota-meter';meter.dataset.low=String(quota?.isLow);const fill=document.createElement('span');fill.style.width=meterPercent+'%';meter.appendChild(fill);info.appendChild(meter);}
+      const value=document.createElement('span');value.className='quota-percent';value.textContent=quota?quota.text:isCustom?(customProvider||text('中转','Relay')):account.quotaSummary?text('不限','Unlimited'):'—';row.append(info,value);row.disabled=account.isCurrent||busy||generating();row.onclick=()=>switchTo(account);popup.appendChild(row);
+    }
+    const refreshButton=document.createElement('button');refreshButton.type='button';refreshButton.setAttribute('role','menuitem');refreshButton.dataset.quotaRefresh='true';refreshButton.disabled=requesting;refreshButton.textContent='↻ '+text('刷新当前账号配额','Refresh current quota');refreshButton.onclick=async()=>{refreshButton.disabled=true;refreshButton.textContent=text('正在刷新…','Refreshing…');const menu=popup;lastQuotaFetch=0;lastNativeQuotaFetch=0;await refresh({notify:true});if(!disposed&&popup===menu&&button.isConnected)openMenu(button);};popup.appendChild(refreshButton);
     popup.addEventListener('keydown',event=>{const rows=[...popup.querySelectorAll('button:not(:disabled)')];let index=rows.indexOf(document.activeElement);if(event.key==='Escape'){closeMenu();button.focus();}else if(['ArrowDown','ArrowUp'].includes(event.key)){event.preventDefault();rows[(index+(event.key==='ArrowDown'?1:-1)+rows.length)%rows.length]?.focus();}});
     document.body.appendChild(popup);popup.querySelector('button:not(:disabled)')?.focus();
   }
@@ -82,20 +138,29 @@
     let host=document.getElementById('agy-account-capsule');if(!host){host=document.createElement('div');host.id='agy-account-capsule';}if(host.parentElement!==composer)composer.appendChild(host);
     let button=document.getElementById('agy-account-badge');if(!button){button=document.createElement('button');button.id='agy-account-badge';button.type='button';button.setAttribute('aria-haspopup','menu');button.setAttribute('aria-expanded','false');button.setAttribute('data-ag-localization-skip','true');button.innerHTML='<span class="quota-dot" aria-hidden="true"></span><span class="quota-label"></span><span class="quota-chevron" aria-hidden="true">⌄</span>';button.onclick=()=>{if(popup)closeMenu();else openMenu(button);};}
     if(button.parentElement!==host)host.appendChild(button);
-    const current=accounts.find(a=>a.isCurrent),currentLabel=label(),quota=selection(current,currentLabel),percent=quota?.percent??null;
+    const current=accounts.find(a=>a.isCurrent);
+    const currentLabel=label();
+    const isCustom=isCustomModel();
+    const customProvider=isCustom?getCustomProviderName():null;
+    const quota=isCustom?null:getAccountQuota(current,currentLabel);
+    
     const accountName=current?.label||current?.email||text('账号','Account');
-    const quotaSuffix=quota?' · '+quotaLabel(quota):'';
+    const suffix=customProvider?' · '+customProvider:quota?' · '+quota.text:'';
     const cacheSuffix=(current&&(stale(current)||authIssues.has(current.email)))?text('（缓存）',' (cached)'):'';
-    const title=accountName+quotaSuffix+cacheSuffix;
+    const title=accountName+suffix+cacheSuffix;
     const caption=button.querySelector('.quota-label');if(caption.textContent!==title)caption.textContent=title;
-    button.dataset.low=String((percent!==null&&percent<10)||authIssues.has(current?.email));button.disabled=busy;
+    
+    button.dataset.low=String((quota?.isLow)||authIssues.has(current?.email));button.disabled=busy;
     const modelTip=currentLabel?text('当前模型：','Current model: ')+currentLabel+'\n':'';
-    const quotaTip=quota?text('剩余额度：','Remaining quota: ')+quotaLabel(quota):isCustomModel()?text('当前使用自定义中转模型','Using custom relay model'):text('当前模型无额度限制','No quota limit for this model');
-    button.title=modelTip+quotaTip+'\n'+text('点击切换账号','Click to switch account');
+    const providerTip=customProvider?text('服务商：','Provider: ')+customProvider+'\n'+text('自定义中转流式直连','Custom relay direct')+'\n':'';
+    const quotaTip=quota?text('当前模型配额：','Model quota: ')+quota.text+'\n':'';
+    button.title=modelTip+providerTip+quotaTip+text('点击切换账号','Click to switch account');
   }
   async function refresh({notify=false}={}){if(disposed)return;if(requesting){refreshAgain=true;return;}requesting=true;try{
+    fetchNativeQuotaSummary().then(()=>render()).catch(()=>{});
     let data=await request('/api/accounts');accounts=data.accounts||[];
     const current=accounts.find(a=>a.isCurrent);if(current&&Date.now()-lastQuotaFetch>300000&&(window.__agySuiteSettings?.showQuota!==false||window.__agySuiteSettings?.quotaReminder!==false)){lastQuotaFetch=Date.now();try{data=await request('/api/accounts/quota',{email:current.email});accounts=data.accounts||accounts;authIssues.delete(current.email);}catch(error){authIssues.set(current.email,friendlyError(error.message));if(notify)showError(friendlyError(error.message));}}
+    await fetchNativeQuotaSummary();
     if(!disposed){render();remind();}
   }catch(error){if(!disposed){if(notify)showError(friendlyError(error.message));render();}}finally{requesting=false;if(refreshAgain&&!disposed){refreshAgain=false;refresh();}}}
   function onAccountsUpdated(event){if(Array.isArray(event.detail)){accounts=event.detail;render();remind();}}
