@@ -1925,6 +1925,11 @@
         backdrop.appendChild(modal);
         document.body.appendChild(backdrop);
 
+        const modelIdInputEl = modal.querySelector('#agy-ms-input-model-id');
+        if (modelIdInputEl) {
+            modelIdInputEl.addEventListener('focus', () => modelIdInputEl.select());
+        }
+
         // 渲染预设按钮
         const presetsBar = modal.querySelector('#agy-ms-presets-bar');
         MODEL_PRESETS.forEach((preset) => {
@@ -2027,14 +2032,77 @@
                     datalistEl.innerHTML = res.models.map(id => `<option value="${escapeHtml(id)}"></option>`).join('');
                     discoveredChipsEl.style.display = 'flex';
                     discoverySignature=JSON.stringify([draft.providerId,draft.baseUrl,draft.apiKey,draft.protocol]);selectedModels.clear();importBtn.style.display='inline-block';
-                    discoveredChipsEl.innerHTML = `<span style="font-size:11px;opacity:0.75;width:100%;">发现 ${res.models.length} 个模型，勾选后批量导入：</span>`;
+                    discoveredChipsEl.innerHTML = `
+                        <div style="font-size:11px;opacity:0.85;width:100%;display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+                            <span>发现 <b>${res.models.length}</b> 个模型（<b>点击名称直接填入</b>，勾选方框批量导入）：</span>
+                            <div style="display:flex;gap:10px;">
+                                <a href="javascript:void(0)" id="agy-ms-select-all" style="color:var(--vscode-textLink-foreground,#3794ff);cursor:pointer;text-decoration:none;font-weight:600;">全选</a>
+                                <a href="javascript:void(0)" id="agy-ms-select-none" style="color:var(--vscode-textLink-foreground,#3794ff);cursor:pointer;text-decoration:none;">取消全选</a>
+                            </div>
+                        </div>
+                    `;
+                    const updateImportBtnText = () => {
+                        importBtn.textContent = selectedModels.size > 0 ? `批量导入已选模型 (${selectedModels.size})` : '批量导入勾选模型';
+                    };
+                    updateImportBtnText();
+
+                    const idInput = modal.querySelector('#agy-ms-input-model-id');
+                    const nameInput = modal.querySelector('#agy-ms-input-name');
+
                     res.models.forEach((mId) => {
                         const chip = document.createElement('label');
                         chip.className = 'agy-ms-preset-chip';
-                        const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.value=mId;
-                        checkbox.addEventListener('change',()=>{if(checkbox.checked)selectedModels.add(mId);else selectedModels.delete(mId);});
-                        chip.append(checkbox,document.createTextNode(mId));
+                        chip.style.cursor = 'pointer';
+                        chip.title = '点击名称填入上方【模型标识】，勾选方框用于批量导入';
+
+                        const checkbox = document.createElement('input');
+                        checkbox.type = 'checkbox';
+                        checkbox.value = mId;
+                        checkbox.style.cursor = 'pointer';
+                        checkbox.addEventListener('change', () => {
+                            if (checkbox.checked) selectedModels.add(mId);
+                            else selectedModels.delete(mId);
+                            updateImportBtnText();
+                        });
+
+                        const textSpan = document.createElement('span');
+                        textSpan.textContent = mId;
+                        textSpan.style.cursor = 'pointer';
+                        textSpan.style.paddingLeft = '3px';
+                        // 点击文字部分直接填入上方的模型标识
+                        textSpan.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            idInput.value = mId;
+                            if (!nameInput.value.trim() || state.editingModelId) {
+                                if (!nameInput.value.trim() || nameInput.value === idInput.defaultValue) {
+                                    nameInput.value = mId;
+                                }
+                            }
+                            bannerEl.className = 'agy-ms-test-banner ok';
+                            bannerEl.textContent = `🎯 已选取模型标识: ${mId}`;
+                        });
+
+                        chip.append(checkbox, textSpan);
                         discoveredChipsEl.appendChild(chip);
+                    });
+
+                    // 全选 / 取消全选事件
+                    modal.querySelector('#agy-ms-select-all')?.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        discoveredChipsEl.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+                            cb.checked = true;
+                            selectedModels.add(cb.value);
+                        });
+                        updateImportBtnText();
+                    });
+                    modal.querySelector('#agy-ms-select-none')?.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        discoveredChipsEl.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+                            cb.checked = false;
+                        });
+                        selectedModels.clear();
+                        updateImportBtnText();
                     });
                     bannerEl.className = 'agy-ms-test-banner ok';
                     bannerEl.textContent = `✅ 已成功从 ${res.endpointUrl} 获取到 ${res.models.length} 个模型！`;

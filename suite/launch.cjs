@@ -55,6 +55,16 @@ function ensureDaemon() {
     }
   } catch (_) {}
   log('Starting daemon process...');
+  if (process.platform === 'win32') {
+    try {
+      const script = `Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{ CommandLine = [char]34 + '${process.execPath.replace(/'/g, "''")}' + [char]34 + ' ' + [char]34 + '${daemonScript.replace(/'/g, "''")}' + [char]34 }`;
+      const res = execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { windowsHide: true, encoding: 'utf8', timeout: 5000 });
+      log('Spawned daemon via WMI detached process:', res.trim());
+      return;
+    } catch (e) {
+      log('WMI spawn fallback to spawn:', e.message);
+    }
+  }
   try {
     const child = spawn(process.execPath, [daemonScript], {
       detached: true,
