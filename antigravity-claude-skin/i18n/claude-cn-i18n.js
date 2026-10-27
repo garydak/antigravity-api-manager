@@ -1,4 +1,4 @@
-(()=>{if(window.__agyRendererBundleId==="b3fb4032113e369cdabb14c0a299d6068dc9dfae9b1aac28c892fa633ab2ffe7"&&window.__agySuite)return;if(window.__AGY_MODEL_SWITCHER?.getState().isSendingCustomChat)return;
+(()=>{if(window.__agyRendererBundleId==="f0afbea6a90829e2d86e9ace55724d01de36221e4f63dc35cdd59899f5111652"&&window.__agySuite)return;if(window.__AGY_MODEL_SWITCHER?.getState().isSendingCustomChat)return;
 window.__agySuiteModules={i18n:function(){
 '__ANTIGRAVITY_CHINESE_LOCALIZATION_START__';
 (() => {
@@ -4647,10 +4647,7 @@ window.__agySuiteModules.accounts=function(){
           try {
             const d = await apiRequest("/api/switch", { email });
             if (!d.ok) throw new Error(d.error || "切换失败");
-            setStatus(`🎉 凭证已就绪！服务已热重载，将在 2.5 秒内自动刷新窗口生效…`);
-            setTimeout(() => {
-              window.location.reload();
-            }, 2600);
+            setStatus(d.message || `🎉 凭证已就绪！服务正在热重载并自动重连窗口…`);
           } catch (err) {
             setStatus(`切换失败: ${err.message}`, 5000);
           }
@@ -4857,7 +4854,7 @@ window.__agySuiteModules.accounts=function(){
   const generating=()=>!!window.__AGY_MODEL_SWITCHER?.getState().isSendingCustomChat||!!document.querySelector('button[data-tooltip-id="input-send-button-cancel-tooltip"]');
   const stale=account=>!Number.isFinite(Date.parse(account?.quotaSummary?.updatedAt))||Date.now()-Date.parse(account.quotaSummary.updatedAt)>600000;
   async function request(endpoint,body){const response=await fetch(API+endpoint,{method:body?'POST':'GET',headers:{'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(30000)});const data=await response.json();if(!response.ok||!data.ok)throw Error(data.error||'Account service unavailable');return data;}
-  async function switchTo(account){if(busy||generating())return;busy=true;render();try{await request('/api/switch',{email:account.email});closeMenu();closeToast();showError(text('账号已切换至 '+account.email+'，正在为您刷新生效…','Switched to '+account.email+', reloading…'));setTimeout(()=>{window.location.reload();},2600);}catch(error){showError(friendlyError(error.message));busy=false;render();}}
+  async function switchTo(account){if(busy||generating())return;busy=true;render();try{await request('/api/switch',{email:account.email});closeMenu();closeToast();showError(text('账号已切换至 '+account.email+'，服务正在热重载并自动恢复中文与套件…','Switched to '+account.email+', reloading service…'));await refresh();}catch(error){showError(friendlyError(error.message));}finally{busy=false;render();}}
   function showError(message){closeToast();toast=document.createElement('div');toast.id='agy-account-toast';toast.setAttribute('role','status');toast.setAttribute('data-ag-localization-skip','true');const content=document.createElement('span');content.textContent=/unauthorized|invalid_grant|invalid_client|HTTP 401/i.test(message)?friendlyError(message):message;toast.appendChild(content);const close=document.createElement('button');close.type='button';close.textContent='×';close.setAttribute('aria-label',text('关闭提示','Dismiss notification'));close.onclick=closeToast;toast.appendChild(close);document.body.appendChild(toast);toastTimer=setTimeout(closeToast,6000);}
   function remind(force=false){
     if(window.__agySuiteSettings?.quotaReminder===false||window.__AGY_MODEL_SWITCHER?.getState().activeMode==='custom')return;
@@ -8852,4 +8849,4 @@ window.__agySuiteTheme="";
   window.__agySuite={apply,save,getSettings:()=>settings,refresh,openCenter,closeCenter,isSaving:()=>saving};
   window.__agySuiteCleanup=()=>{disposed=true;observer.disconnect();clearInterval(poll);document.removeEventListener('keydown',onKey);style.remove();document.getElementById('agy-suite-center')?.remove();document.getElementById('agy-suite-backdrop')?.remove();document.getElementById('agy-suite-sidebar-button')?.remove();document.querySelector('.agy-suite-greeting')?.remove();};
 })();
-window.__agyRendererBundleId="b3fb4032113e369cdabb14c0a299d6068dc9dfae9b1aac28c892fa633ab2ffe7";})();
+window.__agyRendererBundleId="f0afbea6a90829e2d86e9ace55724d01de36221e4f63dc35cdd59899f5111652";})();

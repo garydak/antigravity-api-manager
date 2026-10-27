@@ -524,10 +524,7 @@
           try {
             const d = await apiRequest("/api/switch", { email });
             if (!d.ok) throw new Error(d.error || "切换失败");
-            setStatus(`🎉 凭证已就绪！服务已热重载，将在 2.5 秒内自动刷新窗口生效…`);
-            setTimeout(() => {
-              window.location.reload();
-            }, 2600);
+            setStatus(d.message || `🎉 凭证已就绪！服务正在热重载并自动重连窗口…`);
           } catch (err) {
             setStatus(`切换失败: ${err.message}`, 5000);
           }

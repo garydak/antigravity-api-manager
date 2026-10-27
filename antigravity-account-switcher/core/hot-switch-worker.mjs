@@ -1,9 +1,11 @@
 import { execFileSync, spawn } from "node:child_process";
+import { createRequire } from "node:module";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { fileURLToPath } from "node:url";
 
+const requireCjs = createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const WIN_CRED_PS1 = path.join(__dirname, "win-cred.ps1");
 const DAEMON_JS = path.join(__dirname, "daemon.mjs");
@@ -123,6 +125,33 @@ function killLanguageServerOnly() {
   }
 }
 
+async function reinjectAfterSwitch() {
+  try {
+    const installCorePath = path.join(__dirname, "..", "..", "antigravity-claude-skin", "tools", "install-core.js");
+    if (!fs.existsSync(installCorePath)) return;
+    const installCore = requireCjs(installCorePath);
+    // Electron waits RESTART_COOLDOWN_MS (2000ms) before spawning the new language_server
+    // and navigating the window to the new HTTPS port via onPortChanged.
+    await sleep(2200);
+    const deadline = Date.now() + 18000;
+    while (Date.now() < deadline) {
+      try {
+        const res = await installCore.injectLiveViaCdp({ onlyIfMissing: true });
+        if (res && res.injected > 0) {
+          log(`Re-injected suite into new language_server session (injected=${res.injected})`);
+          await sleep(1500);
+          await installCore.injectLiveViaCdp({ onlyIfMissing: true }).catch(() => {});
+          return;
+        }
+      } catch {}
+      await sleep(700);
+    }
+    await installCore.injectLiveViaCdp({ onlyIfMissing: true }).catch(() => {});
+  } catch (err) {
+    log(`reinjectAfterSwitch warning: ${err.message}`);
+  }
+}
+
 async function main() {
   const args = process.argv.slice(2);
   let email = "";
@@ -156,6 +185,8 @@ async function main() {
   }
 
   ensureDaemonAlive();
+  log(`Hot-switch credentials applied for ${email}; waiting for window reload to re-inject suite...`);
+  await reinjectAfterSwitch();
   log(`Hot-switch to ${email} completed.`);
   process.exit(0);
 }

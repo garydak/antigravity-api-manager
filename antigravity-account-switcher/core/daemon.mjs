@@ -1,4 +1,4 @@
-﻿import http from "node:http";
+import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -7,6 +7,7 @@ import { getActiveModelRequestCount } from '../../antigravity-model-switcher/cor
 import { handleNativeProxyRequest } from '../../antigravity-model-switcher/core/native-proxy.mjs';
 import suiteSettings from '../../suite/settings.cjs';
 import { execFile } from 'node:child_process';
+import { startSuiteWatchdog } from './suite-watchdog.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PANEL_DIR = path.join(__dirname, "..", "plugin", "sidecars", "panel");
@@ -142,6 +143,17 @@ export function ensureLocalSwitcherServer() {
 }
 
 ensureLocalSwitcherServer();
+
+// Event-driven CDP watchdog: automatically re-injects Chinese i18n, relay model
+// switcher, and suite control center whenever the window reloads or navigates
+// to a new language_server port after an account switch.
+if (!globalThis.__AGY_INPROC_SWITCHER__) {
+  try {
+    startSuiteWatchdog((msg) => log(msg));
+  } catch (err) {
+    log(`Watchdog init error: ${err.message}`);
+  }
+}
 
 // Recovery is optional. Without it, an installed suite backend retires when
 // its app is closed, rather than becoming an unwanted permanent background job.
