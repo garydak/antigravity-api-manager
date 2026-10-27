@@ -145,7 +145,7 @@
 ### 🍎 macOS 用户安装
 
 #### 方式 A：离线压缩包安装（推荐）
-1. 下载 [**antigravity-api-manager-v2.4.3-mac.zip**](./releases/antigravity-api-manager-v2.4.3-mac.zip) 并解压。
+1. 下载 [**antigravity-api-manager-v2.4.5-mac.zip**](./releases/antigravity-api-manager-v2.4.5-mac.zip) 并解压。
 2. 打开「终端（Terminal）」，进入解压后的文件夹目录：
    ```bash
    cd ~/Downloads/antigravity-api-manager
@@ -170,7 +170,7 @@ chmod +x install.sh
 ### 🪟 Windows 用户安装
 
 #### 方式 A：离线压缩包安装（推荐）
-1. 下载 [**antigravity-api-manager-v2.4.3-win.zip**](./releases/antigravity-api-manager-v2.4.3-win.zip) 并解压。
+1. 下载 [**antigravity-api-manager-v2.4.5-win.zip**](./releases/antigravity-api-manager-v2.4.5-win.zip) 并解压。
 2. 鼠标双击运行解压目录中的 **`双击一键安装.cmd`**（无需管理员权限）。
 3. 勾选需要启用的模块（汉化、多账号、API 中转），点击确定完成安装。
 4. 双击桌面的 **Antigravity** 快捷方式启动应用即可！
@@ -195,6 +195,22 @@ chmod +x install.sh
 ---
 
 ## 📝 版本更新日志 (Changelog)
+
+### v2.4.5 (2026-10-28)
+* 📊 **智能双周期配额比例联动**：
+  * 针对官方模型（Gemini / Claude / GPT），右下角配额指示胶囊优化为 **优先显示 5 小时比例，同时展示周剩余比例**（如 `账号名 · 5h 80% / 周 68%`）；
+  * 智能自适应周期支持：当所选模型（如特定专属模型）官方仅分配单周期配额时，自动自适应展示单周期比例（如 `账号名 · 周 9%`）；
+  * 配额状态灯智能预警：当 5 小时或周额度任一项低于 10% 时，状态点自动呈现橙红灯预警，健康时保持绿灯。
+* 🌐 **自定义中转模型服务商名称直显**：
+  * 当选用第三方中转 API 模型时，胶囊动态提取并直显当前模型所属的平台服务商名称（如站点域名或自定义服务商名称），不显示虚假的官方百分比；
+  * 悬浮提示框直观展示当前模型名称、服务商名称及通信协议模式。
+
+### v2.4.4 (2026-10-27)
+* 🔄 **浏览器级事件看门狗（Browser-level CDP Watchdog）**：
+  * 适配 Antigravity Electron 架构，建立持久事件监听通道；
+  * 在窗口刷新（Ctrl+R）或账号切换后毫秒级自动重载汉化与增强组件，彻底解决页面重载后语言或增强套件失效的问题。
+* ⚡ **多账号平滑无感热切换与语言服务协同**：
+  * 优化切换流程，消除旧端口访问冲突与页面空白，实现多账号秒级平滑过渡。
 
 ### v2.4.3 (2026-10-26)
 * ⚡ **根除 React 19 崩溃黑屏问题（Zero-Crash / Zero-BlackScreen）**：
