@@ -362,25 +362,45 @@ electron.app.on("browser-window-created", (_event, win) => {
     }
     win.webContents.on("dom-ready", () => injectSkinAndI18nIntoWindow(win));
     win.webContents.on("did-finish-load", () => injectSkinAndI18nIntoWindow(win));
+    win.webContents.on("did-navigate", () => injectSkinAndI18nIntoWindow(win));
+    win.webContents.on("did-frame-finish-load", () => injectSkinAndI18nIntoWindow(win));
   } catch (err) {
     console.error("[ClaudeSkin+CN] Window hook error:", err);
   }
 });
 
 // 5. Self-heal hook on app quit (if an in-app update modified resources, re-ensure hook before exit)
+// 5. Continuous health probe & self-heal hook (auto-reinjects on window reload, navigation, or account switch)
 let lastFlags = JSON.stringify(flags());
 const suiteTimer = setInterval(() => {
   try {
-    const next=JSON.stringify(flags());if(next===lastFlags)return;lastFlags=next;
-    const menu=electron.Menu.getApplicationMenu();if(menu)electron.Menu.setApplicationMenu(menu);
-    for(const win of electron.BrowserWindow.getAllWindows()) {
-      if(win.__agyOriginalOverlay)win.setTitleBarOverlay(win.__agyOriginalOverlay);
-      if(flags().skin)win.setBackgroundColor?.(startup.skinPalette(flags(),electron.nativeTheme?.shouldUseDarkColors).background);
-      if(!flags().skin&&win.__agyOriginalBackground)win.setBackgroundColor?.(win.__agyOriginalBackground);
-      injectSkinAndI18nIntoWindow(win);
+    const currentFlags = flags();
+    const next = JSON.stringify(currentFlags);
+    const flagsChanged = next !== lastFlags;
+    if (flagsChanged) {
+      lastFlags = next;
+      const menu = electron.Menu.getApplicationMenu();
+      if (menu) electron.Menu.setApplicationMenu(menu);
     }
-  }catch(error){console.warn('[Suite]',error.message);}
-},2000);suiteTimer.unref?.();
+    for (const win of electron.BrowserWindow.getAllWindows()) {
+      if (!win || win.isDestroyed() || !win.webContents || win.webContents.isDestroyed()) continue;
+      if (flagsChanged) {
+        if (win.__agyOriginalOverlay) win.setTitleBarOverlay(win.__agyOriginalOverlay);
+        if (currentFlags.skin) win.setBackgroundColor?.(startup.skinPalette(currentFlags, electron.nativeTheme?.shouldUseDarkColors).background);
+        if (!currentFlags.skin && win.__agyOriginalBackground) win.setBackgroundColor?.(win.__agyOriginalBackground);
+        injectSkinAndI18nIntoWindow(win);
+      } else {
+        // Fast probe: check if window has suite running; re-inject immediately if lost (e.g. after reload or account switch)
+        win.webContents.executeJavaScript('typeof window.__agySuite !== "undefined" && typeof window.__agyCnRestore !== "undefined" && typeof window.__AGY_MODEL_SWITCHER !== "undefined"').then((alive) => {
+          if (!alive) {
+            injectSkinAndI18nIntoWindow(win);
+          }
+        }).catch(() => {});
+      }
+    }
+  } catch (error) { console.warn('[Suite]', error.message); }
+}, 1200);
+suiteTimer.unref?.();
 electron.app.on("will-quit", () => {
   try {
     if (!fs.existsSync(__filename) && fs.existsSync(INSTALL_CORE_PATH)) {

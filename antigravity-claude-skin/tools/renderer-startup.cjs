@@ -4,6 +4,6 @@ function skinPalette(settings,systemDark=false){
   return {background:dark?'#1F1E1D':'#FAF9F5',foreground:dark?'#ECE9E2':'#3D3A34'};
 }
 function rendererSource(settings,bundle){
-  return `(()=>{if(window!==window.top||!/^https?:\\/\\/127\\.0\\.0\\.1(?::|\\/)/.test(location.href))return;if(!window.__agySuite)window.__agySuiteInitialSettings=${JSON.stringify(settings)};\n${bundle}\n})();`;
+  return `(()=>{if(window!==window.top||!/^https?:\\/\\/(?:127\\.0\\.0\\.1|localhost|\\[::1\\])(?::|\\/)/.test(location.href))return;if(!window.__agySuite)window.__agySuiteInitialSettings=${JSON.stringify(settings)};\n${bundle}\n})();`;
 }
 module.exports={skinPalette,rendererSource};

@@ -6,8 +6,11 @@ const root = 'D:/software/antigravity-api-manager-main';
 const releaseDir = path.join(root, 'releases');
 fs.mkdirSync(releaseDir, { recursive: true });
 
-const macZip = path.join(releaseDir, 'antigravity-api-manager-v2.3.0-mac.zip');
-const winZip = path.join(releaseDir, 'antigravity-api-manager-v2.3.0-win.zip');
+const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+const version = pkg.version || '2.4.4';
+
+const macZip = path.join(releaseDir, `antigravity-api-manager-v${version}-mac.zip`);
+const winZip = path.join(releaseDir, `antigravity-api-manager-v${version}-win.zip`);
 
 if (fs.existsSync(macZip)) fs.unlinkSync(macZip);
 if (fs.existsSync(winZip)) fs.unlinkSync(winZip);
@@ -33,58 +36,55 @@ const includeFiles = [
   'uninstall-all.ps1',
   'install-online.ps1',
   'live-reload.ps1',
-  '启动Antigravity.cmd',
   '双击一键安装.cmd',
   '双击一键卸载.cmd',
+  '重启Antigravity.cmd',
   'README.md',
-  'LICENSE',
-  '.gitignore'
+  'LICENSE'
 ];
-
-function copyFiltered(src, dst) {
-  const stat = fs.statSync(src);
-  if (stat.isDirectory()) {
-    const base = path.basename(src);
-    if (['.git', 'node_modules', 'backup', 'inspect', 'i18n-repo', 'lifecycle-backups', 'bridges'].includes(base)) return;
-    fs.mkdirSync(dst, { recursive: true });
-    for (const child of fs.readdirSync(src)) {
-      copyFiltered(path.join(src, child), path.join(dst, child));
-    }
-  } else {
-    const base = path.basename(src);
-    if (base.endsWith('.log') || base.endsWith('.bak') || base.endsWith('.tmp')) return;
-    // CRITICAL: NEVER include live credential files
-    if (base === 'accounts.json' || base === 'models.json' || base === 'suite-settings.json' || base === 'install-manifest.json') return;
-    fs.mkdirSync(path.dirname(dst), { recursive: true });
-    fs.copyFileSync(src, dst);
-  }
-}
 
 for (const dir of includeDirs) {
   const src = path.join(root, dir);
-  if (fs.existsSync(src)) copyFiltered(src, path.join(stageDir, dir));
+  const dest = path.join(stageDir, dir);
+  if (fs.existsSync(src)) {
+    fs.cpSync(src, dest, {
+      recursive: true,
+      filter: (srcPath) => {
+        const base = path.basename(srcPath);
+        if (['node_modules', '.git', 'backup', 'inspect', 'tools-test', 'temp_stage_dist'].includes(base)) return false;
+        if (base.endsWith('.log') || base.endsWith('.tmp') || base.endsWith('.bak')) return false;
+        return true;
+      }
+    });
+  }
 }
 
-for (const f of includeFiles) {
-  const src = path.join(root, f);
-  if (fs.existsSync(src)) fs.copyFileSync(src, path.join(stageDir, f));
+for (const file of includeFiles) {
+  const src = path.join(root, file);
+  const dest = path.join(stageDir, file);
+  if (fs.existsSync(src)) {
+    fs.copyFileSync(src, dest);
+  }
 }
 
-console.log('Staging prepared. Creating zip archives...');
+console.log(`Staging prepared. Creating v${version} zip archives...`);
 
-// Compress using PowerShell Compress-Archive
+// 1. Create macOS zip (preserving unix file permissions if possible, standard zip)
 execFileSync('powershell.exe', [
-  '-NoProfile', '-Command',
-  `Compress-Archive -Path "${stageDir}/*" -DestinationPath "${macZip}" -CompressionLevel Optimal -Force`
-], { stdio: 'inherit' });
+  '-NoProfile',
+  '-Command',
+  `Compress-Archive -Path '${stageDir}/*' -DestinationPath '${macZip}' -Force`
+]);
+console.log('Created:', macZip, (fs.statSync(macZip).size / (1024 * 1024)).toFixed(2), 'MB');
 
+// 2. Create Windows zip
 execFileSync('powershell.exe', [
-  '-NoProfile', '-Command',
-  `Compress-Archive -Path "${stageDir}/*" -DestinationPath "${winZip}" -CompressionLevel Optimal -Force`
-], { stdio: 'inherit' });
+  '-NoProfile',
+  '-Command',
+  `Compress-Archive -Path '${stageDir}/*' -DestinationPath '${winZip}' -Force`
+]);
+console.log('Created:', winZip, (fs.statSync(winZip).size / (1024 * 1024)).toFixed(2), 'MB');
 
-// Clean up staging
+// Cleanup stage
 fs.rmSync(stageDir, { recursive: true, force: true });
-
-console.log('Created:', macZip, (fs.statSync(macZip).size / 1024 / 1024).toFixed(2), 'MB');
-console.log('Created:', winZip, (fs.statSync(winZip).size / 1024 / 1024).toFixed(2), 'MB');
+console.log('Release packages successfully generated.');

@@ -520,11 +520,14 @@
         card.addEventListener("click", async () => {
           const email = card.getAttribute("data-card-email");
           if (!email) return;
-          setStatus(`⚡ 正在为您无缝切换至 ${email}（自动续期凭证并热重载服务，约 2 秒后自动刷新窗口）…`);
+          setStatus(`⚡ 正在为您切换至 ${email}，正在续期凭证与重载后台服务…`);
           try {
             const d = await apiRequest("/api/switch", { email });
             if (!d.ok) throw new Error(d.error || "切换失败");
-            setStatus(d.message || `正在切换至 ${email}…`);
+            setStatus(`🎉 凭证已就绪！服务已热重载，将在 2.5 秒内自动刷新窗口生效…`);
+            setTimeout(() => {
+              window.location.reload();
+            }, 2600);
           } catch (err) {
             setStatus(`切换失败: ${err.message}`, 5000);
           }
