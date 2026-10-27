@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/%E7%89%88%E6%9C%AC-v2.4.4-blue?style=flat-square" alt="Version v2.4.4" />
+  <img src="https://img.shields.io/badge/%E7%89%88%E6%9C%AC-v2.4.5-blue?style=flat-square" alt="Version v2.4.5" />
   <img src="https://img.shields.io/badge/%E9%80%82%E7%94%A8%E7%89%88%E6%9C%AC-Antigravity%20v2.22%20~%20v2.26%2B-D97757?style=flat-square" alt="适用版本" />
   <img src="https://img.shields.io/badge/%E6%94%AF%E6%8C%81%E7%B3%BB%E7%BB%9F-macOS%20%7C%20Windows%2010%2F11-0078D6?style=flat-square" alt="平台" />
   <img src="https://img.shields.io/badge/%E6%B1%89%E5%8C%96%E8%AF%8D%E5%BA%93-2100%2B%20%E8%AF%8D%E6%9D%A1%E6%B7%B1%E5%BA%A6%E6%9C%AC%E5%9C%B0%E5%8C%96-2E7D47?style=flat-square" alt="汉化数据" />
@@ -16,14 +16,14 @@
 
 ---
 
-## 📦 最新版本下载 (Release v2.4.4)
+## 📦 最新版本下载 (Release v2.4.5)
 
 本项目已支持 **macOS（Apple Silicon M系列及 Intel 架构）** 与 **Windows** 双平台。您可以直接下载开箱即用的离线压缩包：
 
 | 操作系统 | 架构 / 环境要求 | 压缩包下载链接 | 安装方式 |
 | :--- | :--- | :--- | :--- |
-| 🍏 **macOS** | Apple Silicon (M1/M2/M3/M4) / Intel (Node.js ≥ 20) | [📥 **antigravity-api-manager-v2.4.4-mac.zip**](./releases/antigravity-api-manager-v2.4.4-mac.zip) | 解压后终端运行 `./install.sh` |
-| 🪟 **Windows** | Windows 10 / 11 64-bit (Node.js ≥ 20) | [📥 **antigravity-api-manager-v2.4.4-win.zip**](./releases/antigravity-api-manager-v2.4.4-win.zip) | 解压后双击运行 `双击一键安装.cmd` |
+| 🍏 **macOS** | Apple Silicon (M1/M2/M3/M4) / Intel (Node.js ≥ 20) | [📥 **antigravity-api-manager-v2.4.5-mac.zip**](./releases/antigravity-api-manager-v2.4.5-mac.zip) | 解压后终端运行 `./install.sh` |
+| 🪟 **Windows** | Windows 10 / 11 64-bit (Node.js ≥ 20) | [📥 **antigravity-api-manager-v2.4.5-win.zip**](./releases/antigravity-api-manager-v2.4.5-win.zip) | 解压后双击运行 `双击一键安装.cmd` |
 
 > [!TIP]
 > 也可以通过 GitHub Release 页面下载历史版本与最新归档：[Releases · garydak/antigravity-api-manager](https://github.com/garydak/antigravity-api-manager/releases)
