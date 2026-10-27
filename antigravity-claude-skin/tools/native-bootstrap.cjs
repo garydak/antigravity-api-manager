@@ -399,7 +399,7 @@ const suiteTimer = setInterval(() => {
       }
     }
   } catch (error) { console.warn('[Suite]', error.message); }
-}, 1200);
+}, 3000);
 suiteTimer.unref?.();
 electron.app.on("will-quit", () => {
   try {
