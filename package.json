@@ -8,7 +8,8 @@
     "build:i18n": "node antigravity-claude-skin/tools/build-i18n.js",
     "detect-version": "node tools/detect-version.cjs",
     "install:suite": "node suite/install.cjs",
-    "build:release": "node tools/build-release.cjs",
+    "audit:security": "node tools/audit-security.cjs",
+    "build:release": "node tools/audit-security.cjs && node tools/build-release.cjs",
     "preversion": "node tools/detect-version.cjs"
   },
   "keywords": [
