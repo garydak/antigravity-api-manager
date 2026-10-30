@@ -1,13 +1,14 @@
 {
   "name": "antigravity-api-manager",
-  "version": "2.4.6",
-  "description": "Antigravity API Manager: 第三方 API / 中转模型高效调度与多账号管理套件 (支持 Antigravity 2.27+ 最新版)",
+  "version": "2.4.7",
+  "description": "Antigravity API Manager: 第三方 API / 中转模型高效调度与多账号管理套件 (支持 Antigravity 2.28+ 最新版)",
   "main": "suite/launch.cjs",
   "scripts": {
     "test": "node antigravity-model-switcher/tools/test-native-proxy.mjs",
     "build:i18n": "node antigravity-claude-skin/tools/build-i18n.js",
     "detect-version": "node tools/detect-version.cjs",
     "install:suite": "node suite/install.cjs",
+    "build:release": "node tools/build-release.cjs",
     "preversion": "node tools/detect-version.cjs"
   },
   "keywords": [

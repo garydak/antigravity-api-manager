@@ -3,27 +3,27 @@
 <p align="center">
   <strong>专为 Google Antigravity 打造的第三方 API 中转调度、多账号管理与全量汉化增强套件</strong>
   <br />
-  全面支持 macOS 与 Windows · 原生全套工具无损调用 · 零后台常驻 · 适配 Antigravity v2.22 ~ v2.27+ 最新版
+  全面支持 macOS 与 Windows · 原生全套工具无损调用 · 零后台常驻 · 适配 Antigravity v2.22 ~ v2.28+ 最新版
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/%E7%89%88%E6%9C%AC-v2.4.6-blue?style=flat-square" alt="Version v2.4.6" />
-  <img src="https://img.shields.io/badge/%E9%80%82%E7%94%A8%E7%89%88%E6%9C%AC-Antigravity%20v2.22%20~%20v2.27%2B-D97757?style=flat-square" alt="适用版本" />
+  <img src="https://img.shields.io/badge/%E7%89%88%E6%9C%AC-v2.4.7-blue?style=flat-square" alt="Version v2.4.7" />
+  <img src="https://img.shields.io/badge/%E9%80%82%E7%94%A8%E7%89%88%E6%9C%AC-Antigravity%20v2.22%20~%20v2.28%2B-D97757?style=flat-square" alt="适用版本" />
   <img src="https://img.shields.io/badge/%E6%94%AF%E6%8C%81%E7%B3%BB%E7%BB%9F-macOS%20%7C%20Windows%2010%2F11-0078D6?style=flat-square" alt="平台" />
-  <img src="https://img.shields.io/badge/%E6%B1%89%E5%8C%96%E8%AF%8D%E5%BA%93-2100%2B%20%E8%AF%8D%E6%9D%A1%E6%B7%B1%E5%BA%A6%E6%9C%AC%E5%9C%B0%E5%8C%96-2E7D47?style=flat-square" alt="汉化数据" />
+  <img src="https://img.shields.io/badge/%E6%B1%89%E5%8C%96%E8%AF%8D%E5%BA%93-2260%2B%20%E8%AF%8D%E6%9D%A1%E6%B7%B1%E5%BA%A6%E6%9C%AC%E5%9C%B0%E5%8C%96-2E7D47?style=flat-square" alt="汉化数据" />
   <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-5C5A55?style=flat-square" alt="协议" /></a>
 </p>
 
 ---
 
-## 📦 最新版本下载 (Release v2.4.6)
+## 📦 最新版本下载 (Release v2.4.7)
 
 本项目已支持 **macOS（Apple Silicon M系列及 Intel 架构）** 与 **Windows** 双平台。您可以直接下载开箱即用的离线压缩包：
 
 | 操作系统 | 架构 / 环境要求 | 压缩包下载链接 | 安装方式 |
 | :--- | :--- | :--- | :--- |
-| 🍏 **macOS** | Apple Silicon (M1/M2/M3/M4) / Intel (Node.js ≥ 20) | [📥 **antigravity-api-manager-v2.4.6-mac.zip**](./releases/antigravity-api-manager-v2.4.6-mac.zip) | 解压后终端运行 `./install.sh` |
-| 🪟 **Windows** | Windows 10 / 11 64-bit (Node.js ≥ 20) | [📥 **antigravity-api-manager-v2.4.6-win.zip**](./releases/antigravity-api-manager-v2.4.6-win.zip) | 解压后双击运行 `双击一键安装.cmd` |
+| 🍏 **macOS** | Apple Silicon (M1/M2/M3/M4) / Intel (Node.js ≥ 20) | [📥 **antigravity-api-manager-v2.4.7-mac.zip**](./releases/antigravity-api-manager-v2.4.7-mac.zip) | 解压后终端运行 `./install.sh` |
+| 🪟 **Windows** | Windows 10 / 11 64-bit (Node.js ≥ 20) | [📥 **antigravity-api-manager-v2.4.7-win.zip**](./releases/antigravity-api-manager-v2.4.7-win.zip) | 解压后双击运行 `双击一键安装.cmd` |
 
 > [!TIP]
 > 也可以通过 GitHub Release 页面下载历史版本与最新归档：[Releases · garydak/antigravity-api-manager](https://github.com/garydak/antigravity-api-manager/releases)
@@ -165,9 +165,9 @@
 
 智能助手会自动探测快捷方式、在系统底层静默拉起守护进程（`127.0.0.1:19823`）并通过 CDP 重新注入前端交互组件，**3 秒内全自动恢复**。
 
-### 4. 🔍 版本自适应动态检测（已全面支持 Antigravity 2.27+ 最新版）
+### 4. 🔍 版本自适应动态检测（已全面支持 Antigravity 2.28+ 最新版）
 * 本项目内置了 Antigravity 真实版本动态探测模块（`detect-version`）。
-* 无论运行在 Windows 还是 macOS，套件每次变更与打包时都会自动探测当前系统安装的 Antigravity 实际版本号（当前已实测支持至 **v2.27+** 最新版本），并自适应完成版本协议对齐。
+* 无论运行在 Windows 还是 macOS，套件每次变更与打包时都会自动探测当前系统安装的 Antigravity 实际版本号（当前已实测支持至 **v2.28+** 最新版本），并自适应完成版本协议对齐。
 
 ---
 
@@ -176,10 +176,10 @@
 ### 🍎 macOS 用户安装
 
 #### 方式 A：离线压缩包安装（推荐）
-1. 下载 [**antigravity-api-manager-v2.4.6-mac.zip**](./releases/antigravity-api-manager-v2.4.6-mac.zip) 并解压。
+1. 下载 [**antigravity-api-manager-v2.4.7-mac.zip**](./releases/antigravity-api-manager-v2.4.7-mac.zip) 并解压。
 2. 打开「终端（Terminal）」，进入解压后的文件夹目录：
    ```bash
-   cd ~/Downloads/antigravity-api-manager-v2.4.6-mac
+   cd ~/Downloads/antigravity-api-manager-v2.4.7-mac
    ```
 3. 执行安装脚本：
    ```bash
@@ -201,7 +201,7 @@ chmod +x install.sh
 ### 🪟 Windows 用户安装
 
 #### 方式 A：离线压缩包安装（推荐）
-1. 下载 [**antigravity-api-manager-v2.4.6-win.zip**](./releases/antigravity-api-manager-v2.4.6-win.zip) 并解压。
+1. 下载 [**antigravity-api-manager-v2.4.7-win.zip**](./releases/antigravity-api-manager-v2.4.7-win.zip) 并解压。
 2. 鼠标双击运行解压目录中的 **`双击一键安装.cmd`**（无需管理员权限）。
 3. 勾选需要启用的模块（汉化、多账号、API 中转），点击确定完成安装。
 4. 双击桌面的 **Antigravity** 快捷方式启动应用即可。
@@ -226,6 +226,18 @@ chmod +x install.sh
 ---
 
 ## 📝 版本更新日志 (Changelog)
+
+### v2.4.7 (2026-10-31)
+* 🌐 **全量升级中文汉化引擎至 v2.28.2（深度匹配 Antigravity 2.28+ 最新版）**：
+  * 全量收录官方合作伙伴专区 50 款插件与精选货架体系（Featured Shelves）分类元数据；
+  * 核心独立词库由 `v2.21.1` 迭代升级为 `v2.28.2`，总词条量提升至 2269+ 条，全面消除最新版界面英文字段；
+  * 引擎级优化：升级 DOM 监听机制，支持 Shadow DOM 穿透与批量事件捕获，彻底杜绝界面闪烁与卡顿。
+* 🛡️ **敏感账号信息清理与发布构建脱敏加固**：
+  * 重构发布打包脚本 `tools/build-release.cjs`，建立临时沙盒净空审计机制，绝对排除 `accounts.json`、敏感运行时日志及本地会话临时文件；
+  * 构建后自动双重验证压缩包内容，确保发布产物 100% 脱敏纯净；
+  * 规范账号管理脱敏模板 `accounts.example.json`，防止用户隐私数据意外泄露。
+* 📦 **版本归档瘦身与历史旧包清理**：
+  * 清理仓库中旧版本的压缩归档，保持发布包体积精简高效，仅保留最新原生干净版本。
 
 ### v2.4.6 (2026-10-28)
 * 🎯 **模型管理与批量导入交互大幅增强**：

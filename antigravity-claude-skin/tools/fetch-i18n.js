@@ -12,17 +12,18 @@ const baseUrl = 'https://raw.githubusercontent.com/Silas-02/antigravity-desktop-
 const filesToFetch = [
   { remote: 'localization_engine.js', local: path.join(i18nDir, 'localization_engine.js') },
   { remote: 'dicts/common.json', local: path.join(dictsDir, 'common.json') },
+  { remote: 'dicts/marketplace_plugins.json', local: path.join(dictsDir, 'marketplace_plugins.json') },
   { remote: 'dicts/menu_nav.json', local: path.join(dictsDir, 'menu_nav.json') },
   { remote: 'dicts/page_agents.json', local: path.join(dictsDir, 'page_agents.json') },
   { remote: 'dicts/page_mcp_knowledge.json', local: path.join(dictsDir, 'page_mcp_knowledge.json') },
   { remote: 'dicts/page_settings.json', local: path.join(dictsDir, 'page_settings.json') },
   { remote: 'dicts/page_workspaces.json', local: path.join(dictsDir, 'page_workspaces.json') },
-  { remote: 'dicts/v2.21.1.json', local: path.join(dictsDir, 'v2.21.1.json') }
+  { remote: 'dicts/v2.28.2.json', local: path.join(dictsDir, 'v2.28.2.json') }
 ];
 
 function download(url, dest) {
   return new Promise((resolve, reject) => {
-    https.get(url, (res) => {
+    https.get(url, { headers: { 'User-Agent': 'node' } }, (res) => {
       if (res.statusCode !== 200) {
         return reject(new Error(`HTTP ${res.statusCode} for ${url}`));
       }
@@ -38,11 +39,23 @@ function download(url, dest) {
 }
 
 async function main() {
+  console.log('[i18n] Fetching latest upstream localization files from Silas-02/antigravity-desktop-cn...');
   for (const item of filesToFetch) {
     const url = `${baseUrl}/${item.remote}`;
     const size = await download(url, item.local);
     console.log(`[i18n] Downloaded ${item.remote} (${(size / 1024).toFixed(1)} KB)`);
   }
+
+  // Remove obsolete version dictionary files
+  const obsoleteDicts = ['v2.21.1.json'];
+  for (const obsolete of obsoleteDicts) {
+    const p = path.join(dictsDir, obsolete);
+    if (fs.existsSync(p)) {
+      fs.unlinkSync(p);
+      console.log(`[i18n] Cleaned up obsolete dictionary: ${obsolete}`);
+    }
+  }
+
   console.log('[i18n] All localization files downloaded successfully to', i18nDir);
 }
 

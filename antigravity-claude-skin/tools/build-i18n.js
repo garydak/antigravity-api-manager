@@ -22,7 +22,7 @@ function normalizeText(text) {
     .replace(/”/g, '"');
 }
 
-// Ensure v2.22.0 custom overlay dictionary exists for any newest Antigravity 2.22+ strings
+// Ensure custom overlay dictionary exists for newest Antigravity strings
 function ensureOverlayDict() {
   fs.mkdirSync(dictsDir, { recursive: true });
   const defaultOverlay = {
@@ -51,20 +51,24 @@ function ensureOverlayDict() {
   }
 }
 
-// Extract and persist the engine template from i18n-repo/localization_engine.js if not yet saved
+// Extract and persist the engine template from localization_engine.js
 function ensureEngineTemplate() {
-  if (!fs.existsSync(engineTemplatePath) && fs.existsSync(repoEnginePath)) {
-    const src = fs.readFileSync(repoEnginePath, 'utf8');
-    const startMarker = 'const jsSource = `${SIGNATURE_START}';
+  const engineCandidates = [
+    path.join(i18nDir, 'localization_engine.js'),
+    repoEnginePath
+  ];
+  const engineSrcPath = engineCandidates.find(p => fs.existsSync(p));
+
+  if (engineSrcPath) {
+    const src = fs.readFileSync(engineSrcPath, 'utf8');
+    const match = src.match(/const\s+jsSource\s*=\s*`\$\{SIGNATURE_START\}/);
     const endMarker = 'return jsSource.replace("DICT_PLACEHOLDER", dictJson).replace("REPLACEMENT_ENTRIES_PLACEHOLDER", entriesJson);';
-    const sIdx = src.indexOf(startMarker);
-    const eIdx = src.indexOf(endMarker);
-    if (sIdx === -1 || eIdx === -1) {
-      throw new Error('Could not locate generateJs template markers in localization_engine.js');
-    }
-    // Extract the template body inside generateJs
-    const rawSlice = src.slice(sIdx, eIdx + endMarker.length);
-    const moduleCode = `"use strict";
+
+    if (match && src.includes(endMarker)) {
+      const sIdx = match.index;
+      const eIdx = src.indexOf(endMarker);
+      const rawSlice = src.slice(sIdx, eIdx + endMarker.length);
+      const moduleCode = `"use strict";
 const SIGNATURE_START = "'__ANTIGRAVITY_CHINESE_LOCALIZATION_START__';";
 const SIGNATURE_END = "'__ANTIGRAVITY_CHINESE_LOCALIZATION_END__';";
 function buildRendererScript(dictJson, entriesJson) {
@@ -72,7 +76,9 @@ function buildRendererScript(dictJson, entriesJson) {
 }
 module.exports = { buildRendererScript };
 `;
-    fs.writeFileSync(engineTemplatePath, moduleCode, 'utf8');
+      fs.writeFileSync(engineTemplatePath, moduleCode, 'utf8');
+      console.log('[i18n] Synchronized engine-template.js with latest localization_engine.js');
+    }
   }
 }
 
@@ -100,6 +106,7 @@ function buildI18nBundle() {
   ensureOverlayDict();
   ensureEngineTemplate();
 
+  delete require.cache[require.resolve(engineTemplatePath)];
   const { buildRendererScript } = require(engineTemplatePath);
   const fullDict = loadDictionary();
   const longEntries = Object.entries(fullDict).sort((a, b) => b[0].length - a[0].length);
@@ -277,4 +284,3 @@ function buildI18nBundle() {
 buildI18nBundle();
 
 module.exports = { buildI18nBundle };
-

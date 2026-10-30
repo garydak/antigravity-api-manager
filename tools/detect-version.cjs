@@ -16,7 +16,7 @@ function getAntigravityVersion() {
   } catch (_) {}
 
   if (!resourcesDir || !fs.existsSync(resourcesDir)) {
-    return '2.27.0'; // 默认保底版本
+    return '2.28.2'; // 默认保底版本
   }
 
   // 1. 尝试从 resources/app/package.json 读取
@@ -58,13 +58,13 @@ function getAntigravityVersion() {
     }
   }
 
-  return '2.27.0';
+  return '2.28.2';
 }
 
 function syncVersionInfo() {
   const rawVer = getAntigravityVersion();
   const match = rawVer.match(/^(\d+\.\d+)/);
-  const majorMinor = match ? match[1] : '2.27';
+  const majorMinor = match ? match[1] : '2.28';
   console.log(`[VersionDetector] 检测到本地 Antigravity 版本: ${rawVer} (适配分支: v2.22 ~ v${majorMinor}+)`);
 
   // 1. 同步 package.json
@@ -84,8 +84,9 @@ function syncVersionInfo() {
     // 替换 badge
     readme = readme.replace(/Antigravity%20v[\d.]+%20~%20v[\d.]+%2B/g, `Antigravity%20v2.22%20~%20v${majorMinor}%2B`);
     // 替换正文适配范围
-    readme = readme.replace(/适配 Antigravity v[\d.]+ ~ v[\d.]+\+/g, `适配 Antigravity v2.22 ~ v${majorMinor}+ 最新版`);
+    readme = readme.replace(/适配 Antigravity v[\d.]+(?:\s*~\s*v[\d.]+\+)?(?:\s*最新版)?/g, `适配 Antigravity v2.22 ~ v${majorMinor}+ 最新版`);
     readme = readme.replace(/支持 Antigravity [\d.]+\+/g, `支持 Antigravity ${majorMinor}+`);
+    readme = readme.replace(/最新版\s+最新版/g, '最新版');
 
     fs.writeFileSync(readmePath, readme, 'utf8');
     console.log(`[VersionDetector] README.md 版本标签与正文已同步更新`);
