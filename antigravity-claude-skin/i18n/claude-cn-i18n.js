@@ -1,4 +1,4 @@
-(()=>{if(window.__agyRendererBundleId==="04a4c4789af3158125eddacd412ae2cc66551ef54ff8f610f7ce83d42da7f119"&&window.__agySuite)return;if(window.__AGY_MODEL_SWITCHER?.getState().isSendingCustomChat)return;
+(()=>{if(window.__agyRendererBundleId==="ea1445623df1b68d77cbbec19f968dd03ffdf0b6a03f28fcd3a01381838832de"&&window.__agySuite)return;if(window.__AGY_MODEL_SWITCHER?.getState().isSendingCustomChat)return;
 window.__agySuiteModules={i18n:function(){
 '__ANTIGRAVITY_CHINESE_LOCALIZATION_START__';
 (() => {
@@ -5609,7 +5609,7 @@ window.__agySuiteModules.accounts=function(){
                   <div class="agy-as-meta">
                     <div class="agy-as-name-line">
                       <span class="agy-as-name">${escapeHtml(acc.name || acc.email)}</span>
-                      <span class="agy-as-tag" data-edit-tag="${escapeHtml(acc.email)}" title="点击修改备注">${escapeHtml(acc.label || "备注")} ✎</span>
+                      <span class="agy-as-tag" data-edit-tag="${escapeHtml(acc.email)}" data-label="${escapeHtml(acc.label || "")}" title="点击修改备注">${escapeHtml(acc.label || "备注")} ✎</span>
                     </div>
                     <div class="agy-as-email">${escapeHtml(acc.email)}</div>
                   </div>
@@ -5625,18 +5625,69 @@ window.__agySuiteModules.accounts=function(){
         .join("");
 
       listEl.querySelectorAll("[data-edit-tag]").forEach((tag) => {
-        tag.addEventListener("click", async (e) => {
+        tag.addEventListener("click", (e) => {
           e.stopPropagation();
+          if (tag.querySelector(".agy-as-tag-input")) return;
           const email = tag.getAttribute("data-edit-tag");
-          const cur = tag.textContent.replace(/\s*✎$/, "").trim();
-          const next = window.prompt(`修改账号 ${email} 的备注名称：`, cur);
-          if (next === null) return;
-          try {
-            const d = await apiRequest("/api/accounts/meta", { email, label: next });
-            if (d.ok) renderList(d.accounts);
-          } catch (err) {
-            setStatus(`修改备注失败: ${err.message}`, 4000);
+          const cur = tag.getAttribute("data-label") || tag.textContent.replace(/\s*✎$/, "").trim();
+
+          tag.innerHTML = `
+            <span class="agy-as-tag-editor" style="display:inline-flex;align-items:center;gap:3px;vertical-align:middle;">
+              <input type="text" class="agy-as-tag-input" value="${escapeHtml(cur)}" placeholder="备注名称" style="font-size:11px;line-height:16px;height:20px;padding:1px 6px;border-radius:4px;border:1px solid #D97757;background:rgba(255,255,255,0.08);color:inherit;width:80px;outline:none;box-sizing:border-box;" />
+              <button type="button" class="agy-as-tag-save" title="保存" style="background:#2E7D47;color:#fff;border:none;border-radius:3px;height:20px;padding:0 5px;font-size:11px;cursor:pointer;line-height:20px;">✓</button>
+              <button type="button" class="agy-as-tag-cancel" title="取消" style="background:transparent;color:inherit;border:none;height:20px;padding:0 3px;font-size:11px;cursor:pointer;opacity:0.6;line-height:20px;">✕</button>
+            </span>
+          `;
+
+          const input = tag.querySelector(".agy-as-tag-input");
+          const btnSave = tag.querySelector(".agy-as-tag-save");
+          const btnCancel = tag.querySelector(".agy-as-tag-cancel");
+
+          input.focus();
+          input.select();
+
+          let saving = false;
+          async function doSave() {
+            if (saving) return;
+            saving = true;
+            const next = input.value.trim();
+            try {
+              const d = await apiRequest("/api/accounts/meta", { email, label: next });
+              if (d && d.ok) {
+                renderList(d.accounts);
+              } else {
+                throw new Error((d && d.error) || "未知错误");
+              }
+            } catch (err) {
+              setStatus(`修改备注失败: ${err.message}`, 4000);
+              revert();
+            }
           }
+
+          function revert() {
+            tag.innerHTML = `${escapeHtml(cur || "备注")} ✎`;
+          }
+
+          input.addEventListener("click", (ev) => ev.stopPropagation());
+          btnSave.addEventListener("click", (ev) => {
+            ev.stopPropagation();
+            doSave();
+          });
+          btnCancel.addEventListener("click", (ev) => {
+            ev.stopPropagation();
+            revert();
+          });
+
+          input.addEventListener("keydown", (ev) => {
+            ev.stopPropagation();
+            if (ev.key === "Enter") {
+              ev.preventDefault();
+              doSave();
+            } else if (ev.key === "Escape") {
+              ev.preventDefault();
+              revert();
+            }
+          });
         });
       });
 
@@ -10013,4 +10064,4 @@ window.__agySuiteTheme="";
   window.__agySuite={apply,save,getSettings:()=>settings,refresh,openCenter,closeCenter,isSaving:()=>saving};
   window.__agySuiteCleanup=()=>{disposed=true;observer.disconnect();clearInterval(poll);document.removeEventListener('keydown',onKey);style.remove();document.getElementById('agy-suite-center')?.remove();document.getElementById('agy-suite-backdrop')?.remove();document.getElementById('agy-suite-sidebar-button')?.remove();document.querySelector('.agy-suite-greeting')?.remove();};
 })();
-window.__agyRendererBundleId="04a4c4789af3158125eddacd412ae2cc66551ef54ff8f610f7ce83d42da7f119";})();
+window.__agyRendererBundleId="ea1445623df1b68d77cbbec19f968dd03ffdf0b6a03f28fcd3a01381838832de";})();

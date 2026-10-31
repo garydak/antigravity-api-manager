@@ -98,7 +98,7 @@ function renderAccounts(accounts) {
               <div class="account-info">
                 <div class="account-name-row">
                   <span class="account-name">${escapeHtml(acc.name || acc.email)}</span>
-                  <span class="account-label-tag" data-edit-label="${escapeHtml(acc.email)}" title="点击修改账号备注">${escapeHtml(acc.label || "点击添加备注")} ✎</span>
+                  <span class="account-label-tag" data-edit-label="${escapeHtml(acc.email)}" data-label="${escapeHtml(acc.label || "")}" title="点击修改账号备注">${escapeHtml(acc.label || "点击添加备注")} ✎</span>
                 </div>
                 <div class="account-email">${escapeHtml(acc.email)}</div>
               </div>
@@ -115,23 +115,70 @@ function renderAccounts(accounts) {
 
   // Attach events
   accountsListEl.querySelectorAll("[data-edit-label]").forEach((el) => {
-    el.addEventListener("click", async (e) => {
+    el.addEventListener("click", (e) => {
       e.stopPropagation();
+      if (el.querySelector(".account-label-input")) return;
       const email = el.getAttribute("data-edit-label");
-      const currentText = el.textContent.replace(/\s*✎$/, "").trim();
-      const nextLabel = window.prompt(`修改账号 ${email} 的备注名称：`, currentText);
-      if (nextLabel === null) return;
-      try {
-        const res = await panelFetch("api/accounts/meta", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, label: nextLabel }),
-        });
-        const data = await res.json();
-        if (data.ok) renderAccounts(data.accounts);
-      } catch (err) {
-        showStatus(`修改备注失败: ${err.message}`, "error", 4000);
+      const currentText = el.getAttribute("data-label") || el.textContent.replace(/\s*✎$/, "").trim();
+
+      el.innerHTML = `
+        <span class="account-label-editor" style="display:inline-flex;align-items:center;gap:3px;vertical-align:middle;">
+          <input type="text" class="account-label-input" value="${escapeHtml(currentText)}" placeholder="备注名称" style="font-size:11px;line-height:16px;height:20px;padding:1px 6px;border-radius:4px;border:1px solid var(--accent, #D97757);background:var(--bg-subtle, rgba(255,255,255,0.08));color:inherit;width:80px;outline:none;box-sizing:border-box;" />
+          <button type="button" class="account-label-save" title="保存" style="background:#2E7D47;color:#fff;border:none;border-radius:3px;height:20px;padding:0 5px;font-size:11px;cursor:pointer;line-height:20px;">✓</button>
+          <button type="button" class="account-label-cancel" title="取消" style="background:transparent;color:inherit;border:none;height:20px;padding:0 3px;font-size:11px;cursor:pointer;opacity:0.6;line-height:20px;">✕</button>
+        </span>
+      `;
+
+      const input = el.querySelector(".account-label-input");
+      const btnSave = el.querySelector(".account-label-save");
+      const btnCancel = el.querySelector(".account-label-cancel");
+
+      input.focus();
+      input.select();
+
+      let saving = false;
+      async function doSave() {
+        if (saving) return;
+        saving = true;
+        const nextLabel = input.value.trim();
+        try {
+          const res = await panelFetch("api/accounts/meta", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, label: nextLabel }),
+          });
+          const data = await res.json();
+          if (data.ok) renderAccounts(data.accounts);
+        } catch (err) {
+          showStatus(`修改备注失败: ${err.message}`, "error", 4000);
+          revert();
+        }
       }
+
+      function revert() {
+        el.innerHTML = `${escapeHtml(currentText || "点击添加备注")} ✎`;
+      }
+
+      input.addEventListener("click", (ev) => ev.stopPropagation());
+      btnSave.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        doSave();
+      });
+      btnCancel.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        revert();
+      });
+
+      input.addEventListener("keydown", (ev) => {
+        ev.stopPropagation();
+        if (ev.key === "Enter") {
+          ev.preventDefault();
+          doSave();
+        } else if (ev.key === "Escape") {
+          ev.preventDefault();
+          revert();
+        }
+      });
     });
   });
 
